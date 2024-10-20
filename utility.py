@@ -29,7 +29,6 @@ class PreProcessor:
         id_path_sorted = kwargs['id_path_sorted']
         connectivity_path = kwargs['connectivity_path']
         m3riv_path = kwargs['m3riv_path']
-        m3riv_d_path = kwargs['m3riv_d_path']
         x_path = kwargs['x_path']
         k_path = kwargs['k_path']
         obs_path = kwargs['obs_path']
@@ -47,7 +46,6 @@ class PreProcessor:
         reach_id_sorted = pd.read_csv(id_path_sorted, header=None).to_numpy().flatten()
         connect_data = pd.read_csv(connectivity_path, header=None)
         m3riv_data = pd.read_csv(m3riv_path, header=None)
-        m3riv_d_data = pd.read_csv(m3riv_d_path, header=None)
         x_data = pd.read_csv(x_path, header=None)
         k_data = pd.read_csv(k_path, header=None)
         obs_data = pd.read_csv(obs_path, header=None)
@@ -64,27 +62,28 @@ class PreProcessor:
         vic_data_m = vic_data_m.iloc[1:self.month+1, :cutoff]
         ens_data_m = ens_data_m.iloc[1:self.month+1, :cutoff]
         m3riv_data = m3riv_data.iloc[1:self.days*8+1, :cutoff]
-        m3riv_d_data = m3riv_d_data.iloc[1:self.days+1, :cutoff]
         obs_data = obs_data.iloc[:self.days]
         self.l_reach = x_data.shape[0]
 
         print(f"Number of reaches: {self.l_reach}")
         print(f"3-hourly m3riv_data shape: {m3riv_data.shape}")
-        print(f"Daily m3riv_data shape: {m3riv_d_data.shape}")
         print(f"Number of observations: {obs_id.shape}")
 
         # Process lateral inflow
         lateral_daily = m3riv_data.to_numpy()
         lateral_daily_averaged = lateral_daily / 3 / 3600
         lateral_daily_averaged_sorted = np.zeros_like(lateral_daily_averaged)
+        
+        v_id2sortedid = np.zeros_like(reach_id_sorted)
 
-        # Sorting lateral daily data based on reach IDs
-        for id_reach in reach_id_unsorted:
-            idx = np.where(reach_id_unsorted == id_reach)[0]
-            sorted_idx = np.where(reach_id_sorted == id_reach)[0]
+        for sorted_idx, id_reach in enumerate(reach_id_sorted):
+            idx = np.where(reach_id_unsorted == id_reach)
+            idx = idx[0][0]
             lateral_daily_averaged_sorted[:, sorted_idx] = lateral_daily_averaged[:, idx]
-
+            v_id2sortedid[sorted_idx] = idx
+            
         np.savetxt("model_saved_3hour/u.csv", lateral_daily_averaged_sorted, delimiter=",")
+        np.savetxt("model_saved_3hour/v_id2sortedid.csv", v_id2sortedid, delimiter=",")
         print(f"Lateral daily data shape: {lateral_daily_averaged_sorted.shape}")
 
         # Process Muskingum parameters
@@ -118,7 +117,7 @@ class PreProcessor:
         self._save_matrices(S, R, P, pruned_P, lateral_daily_averaged_sorted)
 
         return self.Ae, self.A0, self.Ae_day, self.A0_day, S, pruned_P, R, lateral_daily_averaged_sorted, \
-               obs_data.to_numpy(), self.A4, self.A5, self.H1, self.H2, self.H1_day, self.H2_day
+               obs_data.to_numpy(), self.A4, self.A5, self.H1, self.H2, self.H1_day, self.H2_day, v_id2sortedid
 
     def _process_muskingum_params(self, x_data, k_data, reach_id_unsorted, reach_id_sorted):
         """
@@ -205,7 +204,7 @@ class PreProcessor:
         mat_I = np.identity(self.l_reach)
         A1 = mat_I - self.musking_C1 @ self.N
         A1_inv = np.linalg.inv(A1)
-        A1_inv[abs(A1_inv) < self.epsilon] = 0  # Filter small values
+        # A1_inv[abs(A1_inv) < self.epsilon] = 0  # Filter small values
 
         A2 = self.musking_C1 + self.musking_C2
         A3 = self.musking_C3 + self.musking_C2 @ self.N

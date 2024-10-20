@@ -19,8 +19,6 @@ import csv
 import netCDF4
 import numpy
 import os
-import pandas as pd
-import time
 
 from datetime import datetime, timezone
 from scipy.sparse import csc_matrix, diags, identity
@@ -50,11 +48,8 @@ Qou_ncf = '../output/Test/Qout_Test.nc'
 # -----------------------------------------------------------------------------
 # San_Guad_JHM
 # -----------------------------------------------------------------------------
-# inp_fld = '../input/San_Guad_JHM2/'
-# out_fld = '../output/San_Guad_JHM2/'
-dir_path =  '../rapid_data_official/'
-inp_fld = dir_path 
-out_fld = dir_path
+inp_fld = '../input/San_Guad_JHM2/'
+out_fld = '../output/San_Guad_JHM2/'
 
 con_csv = inp_fld + 'rapid_connect_San_Guad.csv'
 m3r_ncf = inp_fld + ('m3_riv_San_Guad_20100101_20131231_VIC0125_3H_utc_err_'
@@ -555,49 +550,16 @@ slv_slu = splu(ZM_Lin)
 f = netCDF4.Dataset(m3r_ncf, 'r')
 g = netCDF4.Dataset(Qou_ncf, 'a')
 Qout = g.variables['Qout']
-discharge_estimation = []
-divider = 8  
 
-for JS_m3r_tim in range(IS_m3r_tim//divider):
-    Z_ave_day = ZV_Qou_ini
-    time1 = time.time()
-    for i in range(divider):
-        # ZV_Qex_avg = f.variables['m3_riv'][JS_m3r_tim][IV_bas_tot] / ZS_TaR
-        ZV_Qex_avg = f.variables['m3_riv'][JS_m3r_tim*divider+i][IV_bas_tot] / ZS_TaR
+for JS_m3r_tim in range(IS_m3r_tim):
+    ZV_Qex_avg = f.variables['m3_riv'][JS_m3r_tim][IV_bas_tot] / ZS_TaR
 
-        ZV_Qou_avg, ZV_Qou_fin = mus_rte(ZM_Lin, ZM_Qex, ZM_Qou, IS_dtR,
-                                        ZV_Qou_ini, ZV_Qex_avg)
-        ZV_Qou_ini = ZV_Qou_fin
+    ZV_Qou_avg, ZV_Qou_fin = mus_rte(ZM_Lin, ZM_Qex, ZM_Qou, IS_dtR,
+                                     ZV_Qou_ini, ZV_Qex_avg)
+    ZV_Qou_ini = ZV_Qou_fin
 
-        Qout[JS_m3r_tim, :] = ZV_Qou_avg[:]
+    Qout[JS_m3r_tim, :] = ZV_Qou_avg[:]
 
-        Z_ave_day += ZV_Qou_avg
-            
-    discharge_estimation.append(Z_ave_day/divider)
-    time2 = time.time()
-    
-    print(f"day: {JS_m3r_tim} time: {time2-time1}")
-    
-    m3_riv_df = pd.DataFrame(ZM_Qex[0:100,0:100])
-    m3_riv_df.to_csv('../model_saved_official_original/ZM_Qex_official.csv', index=False)
-    m3_riv_df = pd.DataFrame(ZM_Qou[0:100,0:100])
-    m3_riv_df.to_csv('../model_saved_official_original/ZM_Qou_official.csv', index=False)
-    m3_riv_df = pd.DataFrame(ZM_Lin[0:100,0:100])
-    m3_riv_df.to_csv('../model_saved_official_original/ZM_Lin_official.csv', index=False)
-    
-m3_riv_df = pd.DataFrame(ZM_Net.todense())
-m3_riv_df.to_csv('../model_saved_official_original/ZM_Net.csv', index=False)
-numpy.savetxt("../model_saved_official_original/discharge_est_offical.csv", discharge_estimation, delimiter=",")
-m3_riv_df = pd.DataFrame(ZM_C1m)
-m3_riv_df.to_csv('../model_saved_official_original/ZM_C1m.csv', index=False)
-m3_riv_df = pd.DataFrame(ZM_C2m)
-m3_riv_df.to_csv('../model_saved_official_original/ZM_C2m.csv', index=False)
-m3_riv_df = pd.DataFrame(ZM_C3m)
-m3_riv_df.to_csv('../model_saved_official_original/ZM_C3m.csv', index=False)
-Qout_df = pd.DataFrame(Qout[:])
-Qout_df.to_csv('../model_saved_official_original/Qout.csv', index=False)
-m3_riv_df = pd.DataFrame(f.variables['m3_riv'][:])
-m3_riv_df.to_csv('../model_saved_official_original/m3_riv_df.csv', index=False)
 f.close()
 g.close()
 

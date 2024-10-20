@@ -10,6 +10,9 @@ import geopandas as gpd
 from scipy.stats import multivariate_normal as scipy_gaussian
 from utility import PreProcessor
 from typing import Optional, Dict, Any
+import netCDF4
+from datetime import datetime, timezone
+from tqdm import tqdm
 
 class RAPIDKF:
     """
@@ -31,6 +34,7 @@ class RAPIDKF:
         Args:
             load_mode (int): Mode for loading data (0 = file, 1 = pickle, 2 = both).
         """
+        np.random.seed(42)
         dir_path = os.path.dirname(os.path.realpath(__file__))
         self.sub_dir_path = "model_saved_3hour"
         # Create directory if it doesn't exist
@@ -74,7 +78,13 @@ class RAPIDKF:
         self.R = saved_dict['R']
         self.u = saved_dict['u']
         self.obs_data = saved_dict['obs_data']
-
+        self.id2sortedid = saved_dict['id2sortedid']
+        
+        Qou_ncf = os.path.join(dir_path, self.sub_dir_path, 'Qout_San_Guad_20100101_20131231_VIC0125_3H_utc_py_2.nc')
+        m3r_ncf = os.path.join(dir_path, 'rapid_data/m3_riv_San_Guad_20100101_20131231_VIC0125_3H_utc_err_R286_D_scl.nc')
+        self.Qou_ncf = Qou_ncf
+        self.Qout_nc(m3r_ncf, Qou_ncf, self.id2sortedid)
+        
     def load_file(self, dir_path: str) -> None:
         """
         Loads model parameters from CSV files and initializes the model.
@@ -108,7 +118,6 @@ class RAPIDKF:
             'id_path_sorted': os.path.join(dir_path, 'rapid_data/riv_bas_id_San_Guad_hydroseq.csv'),
             'connectivity_path': os.path.join(dir_path, 'rapid_data/rapid_connect_San_Guad.csv'),
             'm3riv_path': os.path.join(dir_path, 'rapid_data/m3_riv.csv'),
-            'm3riv_d_path': os.path.join(dir_path, 'rapid_data/m3_d_riv.csv'),
             'x_path': os.path.join(dir_path, 'rapid_data/x_San_Guad_2004_1.csv'),
             'k_path': os.path.join(dir_path, 'rapid_data/k_San_Guad_2004_1.csv'),
             'obs_path': os.path.join(dir_path, 'rapid_data/Qobs_San_Guad_2010_2013_full.csv'),
@@ -124,7 +133,7 @@ class RAPIDKF:
 
         data_processor = PreProcessor()
         self.Ae, self.A0, self.Ae_day, self.A0_day, self.S, self.P, self.R, self.u, self.obs_data, \
-            self.A4, self.A5, self.H1, self.H2, self.H1_day, self.H2_day = data_processor.pre_processing(**params)
+            self.A4, self.A5, self.H1, self.H2, self.H1_day, self.H2_day, self.id2sortedid = data_processor.pre_processing(**params)
 
         saved_dict = {
             'Ae': self.Ae,
@@ -142,6 +151,7 @@ class RAPIDKF:
             'R': self.R,
             'u': self.u,
             'obs_data': self.obs_data,
+            'id2sortedid': self.id2sortedid,
         }
 
         dis_name = os.path.join(self.sub_dir_path,'load_coef.pkl')
@@ -155,7 +165,16 @@ class RAPIDKF:
         Args:
             sim_mode (int): Mode for simulation (0 = open loop, 1 = Kalman Filter estimation).
         """
-        kf_estimation = []
+        if sim_mode == 0:
+            print(f"Simulation started with mode: open loop")
+        elif sim_mode == 1: 
+            print(f"Simulation started with mode: Klaman Filter estimation")
+            
+        # Create a netCDF file for the river discharge comparison
+        g = netCDF4.Dataset(self.Qou_ncf, 'a')
+        Qout = g.variables['Qout']
+        
+        state_estimation = []
         discharge_estimation = []
         open_loop_x = []
 
@@ -178,7 +197,7 @@ class RAPIDKF:
         # else:
         #     print(f"rank of O: {rank_O} == n: {n}, system is observable")  
         
-        for timestep in range(self.days):
+        for timestep in tqdm(range(self.days)):
             discharge_avg = np.zeros_like(self.u[0])
             self.x = np.zeros_like(self.u[0])
             evolution_steps = 8  # Number of steps for each day
@@ -200,17 +219,21 @@ class RAPIDKF:
                     discharge_avg += self.update_discharge()
 
             discharge_avg /= evolution_steps
+            Qout[timestep, :] = discharge_avg[:]
 
-            kf_estimation.append(copy.deepcopy(self.get_state()))
+            state_estimation.append(copy.deepcopy(self.get_state()))
             discharge_estimation.append(discharge_avg)
             open_loop_x.append(copy.deepcopy(self.get_discharge()))
 
         # Save results to the created directory
         dir_path = os.path.dirname(os.path.realpath(__file__))
         dir_path = os.path.join(dir_path,self.sub_dir_path)
+        Qout_df = pd.DataFrame(Qout[:])
+        Qout_df.to_csv(os.path.join(dir_path, "Qout.csv"), index=False)
         np.savetxt(os.path.join(dir_path, "discharge_est.csv"), discharge_estimation, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "river_lateral_est.csv"), kf_estimation, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "river_lateral_est.csv"), state_estimation, delimiter=",")
         np.savetxt(os.path.join(dir_path, "open_loop_est.csv"), open_loop_x, delimiter=",")
+        g.close()
         
     def predict(self, u: Optional[np.ndarray] = None) -> None:
         """
@@ -279,6 +302,94 @@ class RAPIDKF:
             np.ndarray: Current discharge.
         """
         return self.Q0
+    
+    def Qout_nc(self, m3r_ncf, Qou_ncf, IV_bas_tot):
+        """
+        Generates a netCDF file for the river discharge comparison.
+
+        Args:
+            m3r_ncf: m3_riv netCDF file.
+            Qou_ncf: Output .nc file
+            IV_bas_tot: maping from index of sorted_ID to id in unsored ID
+        """
+        # -------------------------------------------------------------------------
+        # Get UTC date and time
+        # -------------------------------------------------------------------------
+        YS_dat = datetime.now(timezone.utc)
+        YS_dat = YS_dat.replace(microsecond=0)
+        YS_dat = YS_dat.isoformat()+'+00:00'
+
+        # -------------------------------------------------------------------------
+        # Open one file and create the other
+        # -------------------------------------------------------------------------
+        f = netCDF4.Dataset(m3r_ncf, 'r')
+        g = netCDF4.Dataset(Qou_ncf, 'w', format='NETCDF4')
+
+        # -------------------------------------------------------------------------
+        # Copy dimensions
+        # -------------------------------------------------------------------------
+        YV_exc = ['nerr']
+        for nam, dim in f.dimensions.items():
+            if nam not in YV_exc:
+                g.createDimension(nam, len(dim) if not dim.isunlimited() else None)
+
+        g.createDimension('nerr', 3)
+
+        # -------------------------------------------------------------------------
+        # Create variables
+        # -------------------------------------------------------------------------
+        g.createVariable('Qout', 'float32', ('time', 'rivid'))
+        g['Qout'].long_name = ('average river water discharge downstream of '
+                            'each river reach')
+        g['Qout'].units = 'm3 s-1'
+        g['Qout'].coordinates = 'lon lat'
+        g['Qout'].grid_mapping = 'crs'
+        g['Qout'].cell_methods = 'time: mean'
+
+        g.createVariable('Qout_err', 'float32', ('nerr', 'rivid'))
+        g['Qout_err'].long_name = ('average river water discharge uncertainty '
+                                'downstream of each river reach')
+        g['Qout_err'].units = 'm3 s-1'
+        g['Qout_err'].coordinates = 'lon lat'
+        g['Qout_err'].grid_mapping = 'crs'
+        g['Qout_err'].cell_methods = 'time: mean'
+
+        # -------------------------------------------------------------------------
+        # Copy variables variables
+        # -------------------------------------------------------------------------
+        YV_exc = ['m3_riv', 'm3_riv_err']
+        YV_sub = ['rivid', 'lon', 'lat']
+        for nam, var in f.variables.items():
+            if nam not in YV_exc:
+                if nam in YV_sub:
+                    g.createVariable(nam, var.datatype, var.dimensions)
+                    g[nam][:] = f[nam][IV_bas_tot]
+
+                else:
+                    g.createVariable(nam, var.datatype, var.dimensions)
+                    g[nam][:] = f[nam][:]
+
+                g[nam].setncatts(f[nam].__dict__)
+                # copy variable attributes all at once via dictionary
+
+        # -------------------------------------------------------------------------
+        # Populate global attributes
+        # -------------------------------------------------------------------------
+        g.Conventions = f.Conventions
+        g.title = f.title
+        g.institution = f.institution
+        g.source = 'RAPID, ' + 'runoff: ' + os.path.basename(m3r_ncf)
+        g.history = 'date created: ' + YS_dat
+        g.references = ('https://doi.org/10.1175/2011JHM1345.1, '
+                        'https://github.com/c-h-david/rapid')
+        g.comment = ''
+        g.featureType = f.featureType
+
+        # -------------------------------------------------------------------------
+        # Close all files
+        # -------------------------------------------------------------------------
+        f.close()
+        g.close()
 
 
 if __name__ == '__main__':

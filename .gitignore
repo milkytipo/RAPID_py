@@ -17,3 +17,4 @@ __pycache__
 convert_discharge.py
 explore_shapefile.py
 .DS_Store
+*.nc

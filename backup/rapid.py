@@ -36,6 +36,7 @@ import pandas as pd
 # -----------------------------------------------------------------------------
 # Test
 # -----------------------------------------------------------------------------
+numpy.random.seed(42)
 con_csv = '../input/Test/rapid_connect_Test.csv'
 m3r_ncf = '../input/Test/m3_riv_Test.nc'
 kpr_csv = '../input/Test/k_Test.csv'
@@ -65,7 +66,7 @@ bas_csv = inp_fld + 'riv_bas_id_San_Guad_hydroseq.csv'
 
 ZS_dtR = 900
 
-Qou_ncf = out_fld + 'Qout_San_Guad_20100101_20131231_VIC0125_3H_utc.nc'
+Qou_ncf = out_fld + 'Qout_San_Guad_20100101_20131231_VIC0125_3H_utc_2.nc'
 
 
 # *****************************************************************************
@@ -472,22 +473,16 @@ def mus_rte(ZM_Lin, ZM_Qex, ZM_Qou, IS_dtR, ZV_Qou_ini, ZV_Qex_avg):
     ZV_avg = numpy.zeros(len(ZV_Qou_ini))
     ZV_rh1 = ZM_Qex * ZV_Qex_avg
     
-    # # ZM_Lin_inv = spla.inv(ZM_Lin)
     # ZM_Lin_inv_py = numpy.linalg.inv(ZM_Lin.toarray())
     # ZM_Lin_inv_py = csc_matrix(ZM_Lin_inv_py)
-    # # print(numpy.array_equal(ZM_Lin_inv_py, ZM_Lin_inv.toarray()))
-    # # print(numpy.where(ZM_Lin_inv_py != ZM_Lin_inv.toarray()))
-    # # print(ZM_Lin_inv_py[25,17], ZM_Lin_inv.toarray()[25,17])    
-    # # print(f"*****")
     # A5 = ZM_Lin_inv_py.dot(ZM_Qex)
     # A4 = ZM_Lin_inv_py.dot(ZM_Qou)
-    # # numpy.savetxt("../model_saved/ZM_Lin_2.csv", ZM_Lin.toarray(), delimiter=",")
-    # # numpy.savetxt("../model_saved/ZM_Qex_2.csv", ZM_Qex.toarray(), delimiter=",")
-    # # numpy.savetxt("../model_saved/ZM_Qou_2.csv", ZM_Qou.toarray(), delimiter=",")
-    # # numpy.savetxt("../model_saved/ZM_Lin_inv_2.csv", ZM_Lin_inv.toarray(), delimiter=",")
-    # # numpy.savetxt("../model_saved/A4_2.csv", A4.toarray(), delimiter=",")
-    # # numpy.savetxt("../model_saved/A5_2.csv", A5.toarray(), delimiter=",")
-    # # print(f"A4 {A4.toarray()[0]} / {A5.toarray()[0]}")
+    # A1_inv_2 = ZM_Lin_inv_py.toarray()
+    # A2_2 = ZM_Qex.toarray()
+    # A3_2 = ZM_Qou.toarray()
+    # A5_3 = A1_inv_2 @ A2_2
+    # A4_3 = A1_inv_2 @ A3_2
+
     time1 = time.time()
     for JS_dtR in range(IS_dtR):
         # ---------------------------------------------------------------------
@@ -513,7 +508,7 @@ def mus_rte(ZM_Lin, ZM_Qex, ZM_Qou, IS_dtR, ZV_Qou_ini, ZV_Qex_avg):
     
     # for _ in range(12):
     #     ZV_Qou = A5@ZV_Qex_avg + A4@ZV_Qou
-    #     # print(f"ZV_Qou_fin: {ZV_Qou[1340]}")
+    #     ZV_avg += ZV_Qou
     # time3 = time.time()
     
     # print(f"time gap {time3-time2}")
@@ -581,9 +576,9 @@ Qout = g.variables['Qout']
 divider = 8  
 discharge_estimation = []
 discharge_estimation_ave = []
-# for JS_m3r_tim in range(IS_m3r_tim//divider):
-for JS_m3r_tim in range(100):
-    Z_ave_day = ZV_Qou_ini
+for JS_m3r_tim in range(IS_m3r_tim//divider):
+# for JS_m3r_tim in range(10):
+    Z_ave_day = numpy.zeros(len(IV_riv_bas), dtype=numpy.float64)
     time1 = time.time()
     
     for i in range(divider):
@@ -591,18 +586,16 @@ for JS_m3r_tim in range(100):
         ZV_Qou_avg, ZV_Qou_fin = mus_rte(ZM_Lin, ZM_Qex, ZM_Qou, IS_dtR,
                                         ZV_Qou_ini, ZV_Qex_avg)
         ZV_Qou_ini = ZV_Qou_fin
-        Qout[JS_m3r_tim, :] = ZV_Qou_avg[:]
-        
         Z_ave_day += ZV_Qou_avg
+    
+    Z_ave_day = Z_ave_day/divider
+    Qout[JS_m3r_tim, :] = Z_ave_day[:]
     time2 = time.time()
     print(f"day: {JS_m3r_tim} time: {time2-time1}")
 
     discharge_estimation.append(copy.deepcopy(ZV_Qou_ini))
-    discharge_estimation_ave.append(Z_ave_day/divider)
-    
-    
-m3_riv_df = pd.DataFrame(ZM_Net.todense())
-m3_riv_df.to_csv('../model_saved_official/ZM_Net.csv', index=False)
+    discharge_estimation_ave.append(Z_ave_day)
+
 numpy.savetxt("../model_saved_official/discharge_est_offical.csv", discharge_estimation, delimiter=",")
 numpy.savetxt("../model_saved_official/discharge_est_ave.csv", discharge_estimation_ave, delimiter=",")
 m3_riv_df = pd.DataFrame(ZM_C1m)
@@ -625,10 +618,6 @@ g.close()
 # *****************************************************************************
 # Diagnosis
 # *****************************************************************************
-print(IS_m3r_tim)
-print(ZS_TaR)
-print(ZS_dtR)
-print(ZS_TaR/ZS_dtR)
 print(dir())
 print(ZM_Net.todense())
 print('-----')
