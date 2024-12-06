@@ -108,7 +108,7 @@ class PreProcessor:
         print(f"Dim of R: {R.shape}")
 
         # Calculate and prune P based on radius
-        delta = abs((vic_data_m - ens_data_m)).sum(axis=0) / self.days / 24 / 3600
+        delta = abs((vic_data_m - ens_data_m)).sum(axis=0) / self.days 
         P = self.i_factor * np.dot(delta.values.reshape(-1, 1), delta.values.reshape(-1, 1).T)
         pruned_P = self.pruneP(P, connect_data, self.radius, reach_id_sorted)
         print(f"Dim of P: {P.shape}")
@@ -117,7 +117,7 @@ class PreProcessor:
         self._save_matrices(S, R, P, pruned_P, lateral_daily_averaged_sorted)
 
         return self.Ae, self.A0, self.Ae_day, self.A0_day, S, pruned_P, R, lateral_daily_averaged_sorted, \
-               obs_data.to_numpy(), self.A4, self.A5, self.H1, self.H2, self.H1_day, self.H2_day, v_id2sortedid
+               obs_data.to_numpy(), self.A4, self.A5, self.H1, self.H2, v_id2sortedid
 
     def _process_muskingum_params(self, x_data, k_data, reach_id_unsorted, reach_id_sorted):
         """
@@ -154,17 +154,11 @@ class PreProcessor:
             delta_t = 15 * 60  # 15 minutes
             self.musking_C1[i], self.musking_C2[i], self.musking_C3[i] = self.calculate_Cs(k, x, delta_t)
 
-            # For daily time step
-            delta_t_day = 24 * 60 * 60
-            self.musking_C1_day[i], self.musking_C2_day[i], self.musking_C3_day[i] = self.calculate_Cs(k, x, delta_t_day)
-
         # Convert Muskingum parameters to diagonal matrices
         self.musking_C1 = np.diag(self.musking_C1)
         self.musking_C2 = np.diag(self.musking_C2)
         self.musking_C3 = np.diag(self.musking_C3)
-        self.musking_C1_day = np.diag(self.musking_C1_day)
-        self.musking_C2_day = np.diag(self.musking_C2_day)
-        self.musking_C3_day = np.diag(self.musking_C3_day)
+
 
     def calculate_connectivity(self, river_network, reach_id_sorted):
         """
@@ -232,28 +226,16 @@ class PreProcessor:
         self.A4 = A4
         self.A5 = A5
 
-        # Calculate day-based dynamics coefficients
-        mat_I_day = np.identity(self.l_reach)
-        A1_day = mat_I_day - np.dot(self.musking_C1_day, self.N)
-        A1_inv_day = np.linalg.inv(A1_day)
-        A1_inv_day[A1_inv_day < self.epsilon] = 0
-        A2_day = self.musking_C1_day + self.musking_C2_day
-        A3_day = self.musking_C3_day + np.dot(self.musking_C2_day, self.N)
-        A4_day = A1_inv_day @ A3_day
-        A5_day = A1_inv_day @ A2_day
-
         n_96 = 96  # 1 day = 96 * 15mins
         Ae_day = np.zeros((self.l_reach, self.l_reach))
         for p in np.arange(0, n_96):
-            Ae_day += (n_96 - p) / n_96 * np.linalg.matrix_power(A4_day, p)
-        Ae_day = Ae_day @ A5_day
+            Ae_day += (n_96 - p) / n_96 * np.linalg.matrix_power(A4, p)
+        Ae_day = Ae_day @ A5
 
         A0_day = np.zeros((self.l_reach, self.l_reach))
         for p in np.arange(1, n_96 + 1):
-            A0_day += 1 / n_96 * np.linalg.matrix_power(A4_day, p)
+            A0_day += 1 / n_96 * np.linalg.matrix_power(A4, p)
 
-        self.H1_day = A5_day
-        self.H2_day = A4_day
         self.A0_day = A0_day
         self.Ae_day = Ae_day
 

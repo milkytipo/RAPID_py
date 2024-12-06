@@ -41,7 +41,7 @@ class RAPIDKF:
         if not os.path.exists(os.path.join(dir_path, "model_saved_3hour")):
             os.makedirs(os.path.join(dir_path, "model_saved_3hour"), exist_ok=True)
         self.epsilon: float = 0  # Muskingum parameter threshold
-        self.radius: int = 10
+        self.radius: int = 20
         self.i_factor: float = 2.58  # Enforced on covariance P
         self.days: int = 366 + 365 + 365 + 365  # 2010 to 2013
         self.month: int = self.days // 365 * 12
@@ -71,8 +71,6 @@ class RAPIDKF:
         self.A5 = saved_dict['A5']
         self.H1 = saved_dict['H1']
         self.H2 = saved_dict['H2']
-        self.H1_day = saved_dict['H1_day']
-        self.H2_day = saved_dict['H2_day']
         self.S = saved_dict['S']
         self.P = saved_dict['P']
         self.R = saved_dict['R']
@@ -108,10 +106,6 @@ class RAPIDKF:
         # H1 and H2 updates:
         # H1 += A4^p @ A5  where p ranges from 0 to 95
         # H2 = A4^96
-        # H1_day and H2_day parameters are designed for a daily timestep (delta_t = 1 day),
-        # while H1 and H2 are designed for a 15-minute timestep.
-        # H1_day = A5
-        # H2_day = A4
 
         params = {
             'id_path_unsorted': os.path.join(dir_path, 'rapid_data/rivid.csv'),
@@ -133,7 +127,7 @@ class RAPIDKF:
 
         data_processor = PreProcessor()
         self.Ae, self.A0, self.Ae_day, self.A0_day, self.S, self.P, self.R, self.u, self.obs_data, \
-            self.A4, self.A5, self.H1, self.H2, self.H1_day, self.H2_day, self.id2sortedid = data_processor.pre_processing(**params)
+            self.A4, self.A5, self.H1, self.H2, self.id2sortedid = data_processor.pre_processing(**params)
 
         saved_dict = {
             'Ae': self.Ae,
@@ -144,8 +138,6 @@ class RAPIDKF:
             'A5': self.A5,
             'H1': self.H1,
             'H2': self.H2,
-            'H1_day': self.H1_day,
-            'H2_day': self.H2_day,
             'S': self.S,
             'P': self.P,
             'R': self.R,
@@ -170,6 +162,8 @@ class RAPIDKF:
         elif sim_mode == 1: 
             print(f"Simulation started with mode: Klaman Filter estimation")
             
+        ### Update P scale:
+        # self.P = self.P * 24 * 3600    
         # Create a netCDF file for the river discharge comparison
         g = netCDF4.Dataset(self.Qou_ncf, 'a')
         Qout = g.variables['Qout']
@@ -182,13 +176,14 @@ class RAPIDKF:
         self.Q0 = np.zeros_like(self.u[0])
             
         # ## Check the system observability (commented out for now)
+        # self.x = np.zeros_like(self.u[0])
         # n = self.x.shape[0]
         # O_mat = self.H 
         # O_mat = self.S 
         
         # for i in range(1, n):
         #     # O_mat = np.vstack((O_mat, self.H))
-        #     O_mat = np.vstack((O_mat, self.S @ np.linalg.matrix_power(self.Ae, i)))
+        #     O_mat = np.vstack((O_mat, self.S @ np.linalg.matrix_power(self.Ae_day, i)))
             
         # rank_O = np.linalg.matrix_rank(O_mat)
         
@@ -206,12 +201,13 @@ class RAPIDKF:
                 # Kalman Filter estimation (updates every 3 hours)
                 for i in range(evolution_steps):
                     self.x += self.u[timestep * evolution_steps + i] / evolution_steps
+                self.timestep += 1
 
                 self.update(self.obs_data[timestep], timestep)
 
                 for i in range(evolution_steps):
                     discharge_avg += self.update_discharge()
-
+                
             elif sim_mode == 0:
                 # Open-loop simulation (predict inflow every 3 hours)
                 for i in range(evolution_steps):
@@ -273,6 +269,7 @@ class RAPIDKF:
         Returns:
             np.ndarray: Averaged discharge.
         """
+        Q0 = copy.deepcopy(self.Q0)
         ### Method1
         Q0_ave = np.zeros_like(self.Q0)
         for _ in range(12):
@@ -393,5 +390,5 @@ class RAPIDKF:
 
 
 if __name__ == '__main__':
-    rapid_kf = RAPIDKF(load_mode=1)
-    rapid_kf.simulate(sim_mode=0)
+    rapid_kf = RAPIDKF(load_mode=2)
+    rapid_kf.simulate(sim_mode=1)

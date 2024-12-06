@@ -577,7 +577,7 @@ divider = 8
 discharge_estimation = []
 discharge_estimation_ave = []
 for JS_m3r_tim in range(IS_m3r_tim//divider):
-# for JS_m3r_tim in range(10):
+# for JS_m3r_tim in range(365):
     Z_ave_day = numpy.zeros(len(IV_riv_bas), dtype=numpy.float64)
     time1 = time.time()
     
