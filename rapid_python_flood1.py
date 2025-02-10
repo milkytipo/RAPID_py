@@ -36,14 +36,15 @@ class RAPIDKF:
         """
         np.random.seed(42)
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.sub_dir_path = "model_saved_3hour"
+        self.sub_dir_path = "model_saved_3hour_w_input"
         # Create directory if it doesn't exist
-        if not os.path.exists(os.path.join(dir_path, "model_saved_3hour")):
-            os.makedirs(os.path.join(dir_path, "model_saved_3hour"), exist_ok=True)
+        if not os.path.exists(os.path.join(dir_path, "model_saved_3hour_w_input")):
+            os.makedirs(os.path.join(dir_path, "model_saved_3hour_w_input"), exist_ok=True)
         self.epsilon: float = 0  # Muskingum parameter threshold
         self.radius: int = 20
         self.i_factor: float = 2.58  # Enforced on covariance P
         self.days: int = 366 + 365 + 365 + 365  # 2010 to 2013
+        self.days: int = 20  # 2010 to 2013
         self.month: int = self.days // 365 * 12
         self.timestep: int = 0
         
@@ -200,6 +201,9 @@ class RAPIDKF:
             if sim_mode == 1:
                 # Kalman Filter estimation (updates every 3 hours)
                 for i in range(evolution_steps):
+                    # Unkown input
+                    if timestep <= 10:
+                        self.u[timestep * evolution_steps + i][0] += 0 
                     self.x += self.u[timestep * evolution_steps + i] / evolution_steps
                     
                 self.timestep += 1
@@ -212,6 +216,10 @@ class RAPIDKF:
             elif sim_mode == 0:
                 # Open-loop simulation (predict inflow every 3 hours)
                 for i in range(evolution_steps):
+                    # print(self.x[0:20])
+                    # Unkown input
+                    if timestep <= 10:
+                        self.u[timestep * evolution_steps + i][0] += 0 
                     self.predict(self.u[timestep * evolution_steps + i])
                     discharge_avg += self.update_discharge()
 
@@ -258,11 +266,14 @@ class RAPIDKF:
         z = z - np.dot(self.S, np.dot(self.A0_day, self.Q0))
         innovation = z - np.dot(self.H, self.x)
 
+        if input_type is not None:
+            self.u, self.u_var = self.input_estimation(z)
+            
         S = self.R + np.dot(self.H, np.dot(self.P, self.H.T))
         K = np.dot(np.dot(self.P, self.H.T), np.linalg.inv(S))
         self.x += np.dot(K, innovation)
         # self.P = self.P - np.dot(np.dot(K,self.H),self.P) 
-
+        
     def update_discharge(self) -> np.ndarray:
         """
         Updates the discharge using the current state.
