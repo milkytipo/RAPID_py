@@ -151,7 +151,7 @@ class RAPIDKF:
         with open(os.path.join(dir_path, dis_name), 'wb') as f:
             pickle.dump(saved_dict, f)
 
-    def simulate(self, sim_mode: int = 0) -> None:
+    def simulate_flood(self, sim_mode: int = 0) -> None:
         """
         Simulates the Kalman Filter model.
 
@@ -175,60 +175,104 @@ class RAPIDKF:
 
         self.H = np.dot(self.S, self.Ae_day)
         self.Q0 = np.zeros_like(self.u[0])
-            
-        # ## Check the system observability (commented out for now)
-        # self.x = np.zeros_like(self.u[0])
-        # n = self.x.shape[0]
-        # O_mat = self.H 
-        # O_mat = self.S 
+        evolution_steps = 8  # Number of steps for each day
+        added_flood = np.zeros((self.days*evolution_steps,self.u[0].shape[0]))
+        origin_inflow = np.zeros_like(added_flood)
+        inject_flood_inflow = np.zeros_like(added_flood)
+        discharge_only_flood = np.zeros((self.days,self.u[0].shape[0]))
         
-        # for i in range(1, n):
-        #     # O_mat = np.vstack((O_mat, self.H))
-        #     O_mat = np.vstack((O_mat, self.S @ np.linalg.matrix_power(self.Ae_day, i)))
-            
-        # rank_O = np.linalg.matrix_rank(O_mat)
+        '''
+        Open-loop simulation only added flood(predict inflow every 3 hours)
+        '''
+        for timestep in tqdm(range(self.days)):
+            self.x = np.zeros_like(self.u[0])
+
+            for i in range(evolution_steps):
+                # Unkown input
+                index = timestep * evolution_steps + i
+                if timestep <= 15:
+                    added_flood[index][0] = 20
+                    
+                    origin_inflow[index] = self.u[index]
+                    inject_flood_inflow[index] = copy.deepcopy(self.u[index])
+                    inject_flood_inflow[index] += added_flood[index]
+                    
+                self.predict(added_flood[index])
+                discharge_only_flood[timestep] += self.update_discharge()/evolution_steps
+
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        dir_path = os.path.join(dir_path,self.sub_dir_path)
+        np.savetxt(os.path.join(dir_path, "injected_flood.csv"), added_flood, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "inject_w_inflow.csv"), inject_flood_inflow, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "original_inflow.csv"), origin_inflow, delimiter=",")
         
-        # if rank_O < n:
-        #     print(f"rank of O: {rank_O} < n: {n}, system is not observable")
-        # else:
-        #     print(f"rank of O: {rank_O} == n: {n}, system is observable")  
+        '''
+        discharge estimation from original observation (updates every 3 hours)
+        '''
+        self.timestep = 0
+        self.Q0 = np.zeros_like(self.u[0])
+        discharge_obs_kf1 = np.zeros_like(discharge_only_flood)
+        
+        for timestep in tqdm(range(self.days)):
+            self.x = np.zeros_like(self.u[0])
+            for i in range(evolution_steps):
+                self.x += self.u[timestep * evolution_steps + i] / evolution_steps
+            
+            self.timestep += 1
+            
+            self.update(self.obs_data[timestep], timestep)
+            
+            for i in range(evolution_steps):
+                discharge_obs_kf1[timestep] += self.update_discharge()/evolution_steps
+            
+        np.savetxt(os.path.join(dir_path, "discharge_from_obs1.csv"), discharge_obs_kf1, delimiter=",")
+        
+        '''
+        Open-loop simulation with added flood 
+        '''
+        self.timestep = 0
+        self.Q0 = np.zeros_like(self.u[0])
         
         for timestep in tqdm(range(self.days)):
             discharge_avg = np.zeros_like(self.u[0])
             self.x = np.zeros_like(self.u[0])
-            evolution_steps = 8  # Number of steps for each day
-
-            if sim_mode == 1:
-                # Kalman Filter estimation (updates every 3 hours)
-                for i in range(evolution_steps):
-                    # Unkown input
-                    if timestep <= 10:
-                        self.u[timestep * evolution_steps + i][0] += 0 
-                    self.x += self.u[timestep * evolution_steps + i] / evolution_steps
-                    
-                self.timestep += 1
-
-                self.update(self.obs_data[timestep], timestep)
-
-                for i in range(evolution_steps):
-                    discharge_avg += self.update_discharge()
                 
-            elif sim_mode == 0:
-                # Open-loop simulation (predict inflow every 3 hours)
-                for i in range(evolution_steps):
-                    # print(self.x[0:20])
-                    # Unkown input
-                    if timestep <= 10:
-                        self.u[timestep * evolution_steps + i][0] += 0 
-                    self.predict(self.u[timestep * evolution_steps + i])
-                    discharge_avg += self.update_discharge()
+            for i in range(evolution_steps):
+                self.predict(inject_flood_inflow[timestep * evolution_steps + i])
+                discharge_avg += self.update_discharge()
+
+            discharge_avg /= evolution_steps
+            open_loop_x.append(discharge_avg)
+        
+        '''
+        Simulation under synthetic data
+        '''
+        self.timestep = 0
+        self.Q0 = np.zeros_like(self.u[0])
+        
+        for timestep in tqdm(range(self.days)):
+            discharge_avg = np.zeros_like(self.u[0])
+            self.x = np.zeros_like(self.u[0])
+
+            # Kalman Filter estimation (updates every 3 hours)
+            for i in range(evolution_steps):
+                self.x += self.u[timestep * evolution_steps + i]  / evolution_steps
+                self.x += added_flood[timestep * evolution_steps + i] / evolution_steps
+                
+            self.timestep += 1
+
+            gt_obs = discharge_obs_kf1[timestep] + discharge_only_flood[timestep]
+            gt_obs = self.H @ gt_obs
+            self.update(gt_obs, timestep)
+
+            for i in range(evolution_steps):
+                discharge_avg += self.update_discharge()
 
             discharge_avg /= evolution_steps
             Qout[timestep, :] = discharge_avg[:]
 
             state_estimation.append(copy.deepcopy(self.get_state()))
             discharge_estimation.append(discharge_avg)
-            open_loop_x.append(copy.deepcopy(self.get_discharge()))
 
         # Save results to the created directory
         dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -403,4 +447,4 @@ class RAPIDKF:
 
 if __name__ == '__main__':
     rapid_kf = RAPIDKF(load_mode=1)
-    rapid_kf.simulate(sim_mode=1)
+    rapid_kf.simulate_flood()

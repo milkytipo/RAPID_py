@@ -69,5 +69,5 @@ def update(i):
 # Create animation
 ani = FuncAnimation(fig, update, frames=days, repeat=False)
 
-# plt.show()
-ani.save('./model_saved/flood1_kf_without_input.gif', writer='pillow', fps=3)
+plt.show()
+ani.save('./model_saved_3hour_w_input/flood1_kf_without_input.gif', writer='pillow', fps=3)
