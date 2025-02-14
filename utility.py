@@ -6,6 +6,46 @@ import scipy.sparse as sp
 import scipy.sparse.linalg as splinalg
 
 
+import numpy as np
+
+import numpy as np
+
+def find_rank_and_rightmost_columns(matrix, tol=1e-10):
+    """
+    Given an m x n matrix, return its rank and the rightmost column indices that contribute to the rank.
+
+    Args:
+        matrix (list of lists or np.ndarray): The input matrix.
+        tol (float): Numerical tolerance for identifying independent columns.
+
+    Returns:
+        tuple: (rank, list of rightmost column indices contributing to rank)
+    """
+    A = np.array(matrix, dtype=float)  # Convert to NumPy array
+    m, n = A.shape
+
+    # Step 1: Compute Singular Value Decomposition (SVD)
+    U, S, Vt = np.linalg.svd(A)
+
+    # Step 2: Determine the rank based on nonzero singular values
+    rank = np.sum(S > tol)  # Count singular values above the tolerance
+
+    # Step 3: Identify independent columns contributing to rank
+    independent_vectors = Vt[:rank, :]  # First 'rank' rows of Vt
+
+    # Step 4: Find all significant contributing columns
+    all_contributing_columns = []
+    for row in independent_vectors:
+        significant_indices = np.where(np.abs(row) > tol)[0]  # Identify all significant nonzero indices
+        all_contributing_columns.extend(significant_indices)  # Collect all indices
+
+    # Step 5: Select exactly `rank` rightmost columns
+    unique_cols = sorted(set(all_contributing_columns), reverse=True)[:rank]
+
+    return rank, sorted(unique_cols)
+
+
+
 class PreProcessor:
     """
     A class responsible for preprocessing the data required by the Kalman Filter model.

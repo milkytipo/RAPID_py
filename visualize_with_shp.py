@@ -10,7 +10,7 @@ shp_path = "./rapid_data/NHDFlowline_San_Guad/NHDFlowline_San_Guad.shp"
 shp_data = gpd.read_file(shp_path)
 
 # Load the estimation of discharge data without treating the first row as the header
-discharge_data_path = "./model_saved_3hour_w_input/discharge_est.csv"
+discharge_data_path = "./model_saved_3hour_w_input/flood_est.csv"
 discharge_data = pd.read_csv(discharge_data_path, header=None)
 
 # Load the reach ID data without treating the first row as the header
