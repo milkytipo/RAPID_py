@@ -4,13 +4,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 from matplotlib.animation import FuncAnimation
+import os
 
+# Set the base path for the model
+model_path = "./model_saved_3hour_w_input"
+file_name = "obs_synthetic"
 # Load the shapefile
 shp_path = "./rapid_data/NHDFlowline_San_Guad/NHDFlowline_San_Guad.shp"
 shp_data = gpd.read_file(shp_path)
 
 # Load the estimation of discharge data without treating the first row as the header
-discharge_data_path = "./model_saved_3hour_w_input/flood_est.csv"
+discharge_data_path = f"{model_path}/{file_name}.csv"
 discharge_data = pd.read_csv(discharge_data_path, header=None)
 
 # Load the reach ID data without treating the first row as the header
@@ -36,7 +40,8 @@ shp_sub = shp_data[shp_data['strmOrder'] > 0]
 Qcols = [col for col in shp_sub.columns if col.startswith('Q')]
 
 days = 20
-globQmax = shp_sub[Qcols[0:days]].max().max()
+# To set color bar range
+globQmax = max(shp_sub[Qcols[0:days]].max().max(), 40)
 
 # Set up color and line width gradients
 colfun = plt.cm.viridis
@@ -69,5 +74,12 @@ def update(i):
 # Create animation
 ani = FuncAnimation(fig, update, frames=days, repeat=False)
 
-plt.show()
-ani.save('./model_saved_3hour_w_input/flood1_kf_without_input.gif', writer='pillow', fps=3)
+# plt.show()
+
+# Create gif directory if it doesn't exist
+gif_path = f"{model_path}/gif"
+if not os.path.exists(gif_path):
+    os.makedirs(gif_path, exist_ok=True)
+
+# Save the animation
+ani.save(f"{gif_path}/{file_name}.gif", writer='pillow', fps=3)

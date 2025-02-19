@@ -37,10 +37,10 @@ class RAPIDKF:
         """
         np.random.seed(42)
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.sub_dir_path = "model_saved_3hour_w_input"
+        self.sub_dir_path = "model_saved_3hour_w_input_flood3"
         # Create directory if it doesn't exist
-        if not os.path.exists(os.path.join(dir_path, "model_saved_3hour_w_input")):
-            os.makedirs(os.path.join(dir_path, "model_saved_3hour_w_input"), exist_ok=True)
+        if not os.path.exists(os.path.join(dir_path, self.sub_dir_path)):
+            os.makedirs(os.path.join(dir_path, self.sub_dir_path), exist_ok=True)
         self.epsilon: float = 0  # Muskingum parameter threshold
         self.radius: int = 20
         self.i_factor: float = 2.58  # Enforced on covariance P
@@ -194,7 +194,7 @@ class RAPIDKF:
             "original_inflow.csv",
             "discharge_from_obs1.csv",
             "open_loop_est.csv",
-            "discharge_only_flood.csv"
+            "discharge_only_floodx.csv"
         ]
         
         file_paths = [os.path.join(dir_path, file) for file in file_names]
@@ -222,7 +222,13 @@ class RAPIDKF:
                     # Unkown input
                     index = timestep * evolution_steps + i
                     if timestep <= 15:
-                        added_flood[index][0] = 20
+                        # added_flood[index][0] = 20
+                        num_reaches = self.u[0].shape[0] 
+                        r_peak = num_reaches // 4  # first quarter of the river 
+                        sigma = 5  # spread parameter 
+                        # Gaussian-distributed rainfall 
+                        added_flood[index] = 5 * np.exp(-((np.arange(num_reaches) - r_peak) ** 2) / (2 * sigma ** 2))
+                        
                         
                         origin_inflow[index] = self.u[index]
                         inject_flood_inflow[index] = copy.deepcopy(self.u[index])
