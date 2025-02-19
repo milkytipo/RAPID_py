@@ -7,8 +7,9 @@ from matplotlib.animation import FuncAnimation
 import os
 
 # Set the base path for the model
-model_path = "./model_saved_3hour_w_input"
-file_name = "obs_synthetic"
+# model_path = "./model_saved_3hour_w_input"
+model_path = "./model_saved_3hour_w_input_flood3"
+file_name = "discharge_only_flood"
 # Load the shapefile
 shp_path = "./rapid_data/NHDFlowline_San_Guad/NHDFlowline_San_Guad.shp"
 shp_data = gpd.read_file(shp_path)
@@ -41,7 +42,7 @@ Qcols = [col for col in shp_sub.columns if col.startswith('Q')]
 
 days = 20
 # To set color bar range
-globQmax = max(shp_sub[Qcols[0:days]].max().max(), 40)
+globQmax = max(shp_sub[Qcols[0:days]].max().max(), 800  )
 
 # Set up color and line width gradients
 colfun = plt.cm.viridis
@@ -74,7 +75,7 @@ def update(i):
 # Create animation
 ani = FuncAnimation(fig, update, frames=days, repeat=False)
 
-# plt.show()
+plt.show()
 
 # Create gif directory if it doesn't exist
 gif_path = f"{model_path}/gif"

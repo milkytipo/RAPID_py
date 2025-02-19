@@ -194,7 +194,7 @@ class RAPIDKF:
             "original_inflow.csv",
             "discharge_from_obs1.csv",
             "open_loop_est.csv",
-            "discharge_only_floodx.csv"
+            "discharge_only_flood.csv"
         ]
         
         file_paths = [os.path.join(dir_path, file) for file in file_names]
@@ -222,18 +222,11 @@ class RAPIDKF:
                     # Unkown input
                     index = timestep * evolution_steps + i
                     if timestep <= 15:
-                        # added_flood[index][0] = 20
-                        num_reaches = self.u[0].shape[0] 
-                        r_peak = num_reaches // 4  # first quarter of the river 
-                        sigma = 5  # spread parameter 
-                        # Gaussian-distributed rainfall 
-                        added_flood[index] = 5 * np.exp(-((np.arange(num_reaches) - r_peak) ** 2) / (2 * sigma ** 2))
-                        
-                        
+                        added_flood[index] = self.inject_flood_gaussian(added_flood[index])
                         origin_inflow[index] = self.u[index]
                         inject_flood_inflow[index] = copy.deepcopy(self.u[index])
                         inject_flood_inflow[index] += added_flood[index]
-                        
+
                     self.predict(added_flood[index])
                     discharge_only_flood[timestep] += self.update_discharge()/evolution_steps
 
@@ -407,6 +400,29 @@ class RAPIDKF:
 
         return u, u_var 
 
+    def inject_flood_fixed_point(self, flood_vector, index = 0, water = 20):
+        """
+        Simulate the flood injection, index is the reach ID to inject, water is the discharge
+
+        Returns:
+            np.ndarray: vector of added flood discharge of each each
+        """
+        flood_vector[index] = water
+        return flood_vector
+    
+    def inject_flood_gaussian(self, flood_vector, index = 0, water = 20):
+        """
+        Simulate the flood injection, index is the reach ID to inject, water is the discharge
+
+        Returns:
+            np.ndarray: vector of added flood discharge of each each
+        """
+        num_reaches = self.u[0].shape[0] 
+        r_peak = num_reaches // 4  
+        # Gaussian-distributed rainfall 
+        flood_vector = 5 * np.exp(-((np.arange(num_reaches) - r_peak) ** 2) / (2 * sigma ** 2))
+        return flood_vector  
+    
     def get_state(self) -> np.ndarray:
         """
         Returns the current state.

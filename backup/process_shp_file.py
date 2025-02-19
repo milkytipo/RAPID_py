@@ -14,11 +14,8 @@ def extract_reach_info(row):
     # Display the first few geometries
     print("\nFirst few geometries in the 'geometry' column:")
     print(gdf['geometry'].head()[0])
-    print(len(gdf['geometry'].head()[0]))
-    
+    print(len(gdf['geometry'].iloc[0].coords))
 
-    import time
-    time.sleep(100)
     start_point = coords[0]
     end_point = coords[-1]
 
