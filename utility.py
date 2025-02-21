@@ -44,8 +44,36 @@ def find_rank_and_rightmost_columns(matrix, tol=1e-10):
 
     return rank, sorted(unique_cols)
 
+def river_geo_info():
+    # Load the reach information CSV (contains lat/lon data)
+    reach_info_path = "./rapid_data/NHDFlowline_San_Guad/reach_info.csv"
+    reach_info = pd.read_csv(reach_info_path)
 
+    # Load the sorted river network IDs (upstream to downstream)
+    sorted_ids_path = "./rapid_data/riv_bas_id_San_Guad_hydroseq.csv"
+    sorted_ids = pd.read_csv(sorted_ids_path, header=None, names=['Reach ID'])  # Assuming no header
 
+    # Normalize column names (strip spaces and lowercase)
+    reach_info.columns = reach_info.columns.str.strip()
+    sorted_ids.columns = sorted_ids.columns.str.strip()
+
+    # Merge sorted river network order with lat/lon information
+    merged_reach_info = sorted_ids.merge(reach_info, on="Reach ID", how="left")
+
+    # Compute the Euclidean distance for each reach (between start and end coordinates)
+    merged_reach_info["Euclidean Distance"] = np.sqrt(
+        (merged_reach_info["Start Latitude"] - merged_reach_info["End Latitude"]) ** 2 +
+        (merged_reach_info["Start Longitude"] - merged_reach_info["End Longitude"]) ** 2
+    )
+    
+    # Normalize column names (strip spaces)
+    merged_reach_info.columns = merged_reach_info.columns.str.strip()
+
+    # Save the ordered reach information with midpoints
+    output_path = "./rapid_data/ordered_reach_coords.csv"
+    merged_reach_info.to_csv(output_path, index=False)
+    
+    return merged_reach_info
 class PreProcessor:
     """
     A class responsible for preprocessing the data required by the Kalman Filter model.

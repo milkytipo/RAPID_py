@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import geopandas as gpd
 from scipy.stats import multivariate_normal as scipy_gaussian
 from utility import PreProcessor
+import utility
 from typing import Optional, Dict, Any
 import netCDF4
 from datetime import datetime, timezone
@@ -37,7 +38,7 @@ class RAPIDKF:
         """
         np.random.seed(42)
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.sub_dir_path = "model_saved_3hour_w_input_flood3"
+        self.sub_dir_path = "model_saved_3hour_flood3"
         # Create directory if it doesn't exist
         if not os.path.exists(os.path.join(dir_path, self.sub_dir_path)):
             os.makedirs(os.path.join(dir_path, self.sub_dir_path), exist_ok=True)
@@ -85,73 +86,6 @@ class RAPIDKF:
         self.Qou_ncf = Qou_ncf
         self.Qout_nc(m3r_ncf, Qou_ncf, self.id2sortedid)
         
-    def load_file(self, dir_path: str) -> None:
-        """
-        Loads model parameters from CSV files and initializes the model.
-
-        Args:
-            dir_path (str): Directory path where the CSV files are stored.
-        """
-        # Introduction to the model parameters:
-        # These correspond to Equations (6) and (7) in the paper:
-        # "Underlying fundamentals of Kalman filtering for river network modeling"
-
-        # Matrix definitions:
-        # A4 = [I - C1N]^-1(C3 + C2N)
-        # A5 = [I - C1N]^-1(C1 + C2)
-        # Ae is used for open-loop simulation, while Ae_day is for Kalman Filter (KF) estimation.
-        # Parameter updates (open-loop and KF estimation):
-        # Ae += (12 - p)/12 * A4^p @ A5  where p ranges from 0 to 11
-        # A0 += 1/12 * A4^p  where p ranges from 1 to 12
-        # Ae_day += (96 - p)/96 * A4^p @ A5  where p ranges from 0 to 95
-        # A0_day += 1/96 * A4^p  where p ranges from 1 to 96
-        # H1 and H2 updates:
-        # H1 += A4^p @ A5  where p ranges from 0 to 95
-        # H2 = A4^96
-
-        params = {
-            'id_path_unsorted': os.path.join(dir_path, 'rapid_data/rivid.csv'),
-            'id_path_sorted': os.path.join(dir_path, 'rapid_data/riv_bas_id_San_Guad_hydroseq.csv'),
-            'connectivity_path': os.path.join(dir_path, 'rapid_data/rapid_connect_San_Guad.csv'),
-            'm3riv_path': os.path.join(dir_path, 'rapid_data/m3_riv.csv'),
-            'x_path': os.path.join(dir_path, 'rapid_data/x_San_Guad_2004_1.csv'),
-            'k_path': os.path.join(dir_path, 'rapid_data/k_San_Guad_2004_1.csv'),
-            'obs_path': os.path.join(dir_path, 'rapid_data/Qobs_San_Guad_2010_2013_full.csv'),
-            'obs_id_path': os.path.join(dir_path, 'rapid_data/obs_tot_id_San_Guad_2010_2013_full.csv'),
-            'vic_model_path': os.path.join(dir_path, 'rapid_data/m3_riv_vic_month.csv'),
-            'ens_model_path': os.path.join(dir_path, 'rapid_data/m3_riv_ens_month.csv'),
-            'days': self.days,
-            'month': self.month,
-            'radius': self.radius,
-            'epsilon': self.epsilon,
-            'i_factor': self.i_factor,
-        }
-
-        data_processor = PreProcessor()
-        self.Ae, self.A0, self.Ae_day, self.A0_day, self.S, self.P, self.R, self.u, self.obs_data, \
-            self.A4, self.A5, self.H1, self.H2, self.id2sortedid = data_processor.pre_processing(**params)
-
-        saved_dict = {
-            'Ae': self.Ae,
-            'A0': self.A0,
-            'Ae_day': self.Ae_day,
-            'A0_day': self.A0_day,
-            'A4': self.A4,
-            'A5': self.A5,
-            'H1': self.H1,
-            'H2': self.H2,
-            'S': self.S,
-            'P': self.P,
-            'R': self.R,
-            'u': self.u,
-            'obs_data': self.obs_data,
-            'id2sortedid': self.id2sortedid,
-        }
-
-        dis_name = os.path.join(self.sub_dir_path,'load_coef.pkl')
-        with open(os.path.join(dir_path, dis_name), 'wb') as f:
-            pickle.dump(saved_dict, f)
-
     def simulate_flood(self, sim_mode: int = 0) -> None:
         """
         Simulates the Kalman Filter model.
@@ -160,9 +94,9 @@ class RAPIDKF:
             sim_mode (int): Mode for simulation (0 = open loop, 1 = Kalman Filter estimation).
         """
         if sim_mode == 0:
-            print(f"Simulation started with mode: open loop")
+            print(f"Load_csv file")
         elif sim_mode == 1: 
-            print(f"Simulation started with mode: Klaman Filter estimation")
+            print(f"Compute all csv from scratch")
             
         ### Update P scale:
         # self.P = self.P * 24 * 3600    
@@ -176,7 +110,6 @@ class RAPIDKF:
         flood_est = []
         obs_synthetic = []
         
-        self.H = np.dot(self.S, self.Ae_day)
         self.Q0 = np.zeros_like(self.u[0])
         evolution_steps = 8  # Number of steps for each day
         added_flood = np.zeros((self.days*evolution_steps,self.u[0].shape[0]))
@@ -194,13 +127,14 @@ class RAPIDKF:
             "original_inflow.csv",
             "discharge_from_obs1.csv",
             "open_loop_est.csv",
-            "discharge_only_flood.csv"
+            "discharge_only_flood.csv",
+            "percentile_90.csv"
         ]
         
         file_paths = [os.path.join(dir_path, file) for file in file_names]
 
         # Check if all files exist
-        if all(os.path.exists(file) for file in file_paths):
+        if all(os.path.exists(file) for file in file_paths) and sim_mode == 0:
             print("All CSV files exist. Loading data instead of recalculating...")
 
             added_flood = np.loadtxt(file_paths[0], delimiter=",")
@@ -209,97 +143,34 @@ class RAPIDKF:
             discharge_obs_kf1 = np.loadtxt(file_paths[3], delimiter=",")
             open_loop_x = np.loadtxt(file_paths[4], delimiter=",")
             discharge_only_flood = np.loadtxt(file_paths[5], delimiter=",")
-        
+            percentile_90 = np.loadtxt(file_paths[6], delimiter=",")
         else:
-            print("Some files are missing. Proceeding with the full simulation...")     
-            '''
-            Open-loop simulation only added flood(predict inflow every 3 hours)
-            '''
-            for timestep in tqdm(range(self.days)):
-                self.x = np.zeros_like(self.u[0])
-
-                for i in range(evolution_steps):
-                    # Unkown input
-                    index = timestep * evolution_steps + i
-                    if timestep <= 15:
-                        added_flood[index] = self.inject_flood_gaussian(added_flood[index])
-                        origin_inflow[index] = self.u[index]
-                        inject_flood_inflow[index] = copy.deepcopy(self.u[index])
-                        inject_flood_inflow[index] += added_flood[index]
-
-                    self.predict(added_flood[index])
-                    discharge_only_flood[timestep] += self.update_discharge()/evolution_steps
-
-            np.savetxt(os.path.join(dir_path, "injected_flood.csv"), added_flood, delimiter=",")
-            np.savetxt(os.path.join(dir_path, "inject_w_inflow.csv"), inject_flood_inflow, delimiter=",")
-            np.savetxt(os.path.join(dir_path, "original_inflow.csv"), origin_inflow, delimiter=",")
-            np.savetxt(os.path.join(dir_path, "discharge_only_flood.csv"), discharge_only_flood, delimiter=",")
+            print('Data is needed')
             
-            '''
-            discharge estimation from original observation (updates every 3 hours)
-            '''
-            self.timestep = 0
-            self.Q0 = np.zeros_like(self.u[0])
-            discharge_obs_kf1 = np.zeros_like(discharge_only_flood)
-            
-            for timestep in tqdm(range(self.days)):
-                self.x = np.zeros_like(self.u[0])
-                for i in range(evolution_steps):
-                    self.x += self.u[timestep * evolution_steps + i] / evolution_steps
-                
-                self.timestep += 1
-                
-                self.update(self.obs_data[timestep], timestep)
-                
-                for i in range(evolution_steps):
-                    discharge_obs_kf1[timestep] += self.update_discharge()/evolution_steps
-                
-            np.savetxt(os.path.join(dir_path, "discharge_from_obs1.csv"), discharge_obs_kf1, delimiter=",")
-            
-            '''
-            Open-loop simulation with added flood 
-            '''
-            self.timestep = 0
-            self.Q0 = np.zeros_like(self.u[0])
-            
-            for timestep in tqdm(range(self.days)):
-                discharge_avg = np.zeros_like(self.u[0])
-                self.x = np.zeros_like(self.u[0])
-                    
-                for i in range(evolution_steps):
-                    self.predict(inject_flood_inflow[timestep * evolution_steps + i])
-                    discharge_avg += self.update_discharge()
-
-                discharge_avg /= evolution_steps
-                open_loop_x.append(discharge_avg)
-                
-            np.savetxt(os.path.join(dir_path, "open_loop_est.csv"), open_loop_x, delimiter=",")
-        
         '''
         Simulation under synthetic data
         '''
         # self.S = np.eye(self.P.shape[0])
-        self.H = np.dot(self.S, self.Ae_day)
+        log = -97
+        lat = 29
+        sensing_range = 0.5
+        self.drone_pos_initial(log, lat, sensing_range)
+        # self.H = np.dot(self.S, self.Ae_day)
         self.B = self.S.T
         self.timestep = 0
         self.Q0 = np.zeros_like(self.u[0])
-        
-        for timestep in tqdm(range(self.days)):
-            obs_synthetic.append(discharge_obs_kf1[timestep] + discharge_only_flood[timestep])
-            
-        np.savetxt(os.path.join(dir_path, "obs_synthetic.csv"), obs_synthetic, delimiter=",")
+        drone_pos = []
 
         for timestep in tqdm(range(self.days)):
             discharge_avg = np.zeros_like(self.u[0])
             self.x = np.zeros_like(self.u[0])
-
+            drone_pos.append((log,lat,sensing_range))
+            
             # Kalman Filter estimation (updates every 3 hours)
             for i in range(evolution_steps):
                 self.x += self.u[timestep * evolution_steps + i]  / evolution_steps
                 # self.x += added_flood[timestep * evolution_steps + i] / evolution_steps
                 
-            self.timestep += 1
-
             gt_obs = discharge_obs_kf1[timestep] + discharge_only_flood[timestep]
             gt_obs = self.S @ gt_obs
             self.update(gt_obs, timestep, True)
@@ -309,19 +180,51 @@ class RAPIDKF:
 
             discharge_avg /= evolution_steps
             Qout[timestep, :] = discharge_avg[:]
-
             state_estimation.append(copy.deepcopy(self.get_state()))
             discharge_estimation.append(discharge_avg)
-            
             flood_est.append(self.S.T @ self.u_flood)
+            
+            # Dynamics of drone
+            self.timestep += 1
+            log, lat, sensing_range = self.drone_pos_update(log,lat,sensing_range)
 
         # Save results to the created directory
         Qout_df = pd.DataFrame(Qout[:])
-        Qout_df.to_csv(os.path.join(dir_path, "Qout.csv"), index=False)
-        np.savetxt(os.path.join(dir_path, "discharge_est.csv"), discharge_estimation, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "river_lateral_est.csv"), state_estimation, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "flood_est.csv"), flood_est, delimiter=",")
+        Qout_df.to_csv(os.path.join(dir_path, "drone1_Qout.csv"), index=False)
+        np.savetxt(os.path.join(dir_path, "drone1_discharge_est.csv"), discharge_estimation, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "drone1_river_lateral_est.csv"), state_estimation, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "drone1_flood_est.csv"), flood_est, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "drone1_pos.csv"), drone_pos, delimiter=",")
         g.close()
+    
+    def drone_pos_initial(self, log, lat, range):
+        # Load the ordered reach coordinates with Euclidean distances
+        ordered_reach_coords = utility.river_geo_info()
+        ordered_reach_coords["Distance to Center"] = np.sqrt(
+            (ordered_reach_coords["Start Longitude"] - log) ** 2 +
+            (ordered_reach_coords["Start Latitude"] - lat) ** 2
+        )
+        # Find the 1000 closest reaches
+        closest_reaches = ordered_reach_coords[ordered_reach_coords["Distance to Center"] < range]
+        sensing_id = closest_reaches["Reach ID"].values
+        sorted_ids_path = "./rapid_data/riv_bas_id_San_Guad_hydroseq.csv"
+        sorted_ids = pd.read_csv(sorted_ids_path, header=None, names=['Reach ID'])  # Assuming no header
+
+        S_mat = np.zeros((len(sensing_id), len(sorted_ids)), dtype=int)
+        for i, obs in enumerate(sensing_id):
+            index = np.where(sorted_ids == obs)[0]
+            S_mat[i, index] = 1
+        
+        H_mat = np.dot(S_mat, self.Ae_day)
+        
+        self.S = S_mat
+        self.H = H_mat
+        self.B = self.S.T
+    
+    def drone_pos_update(self, log, lat, range):
+        range *= 1.1
+        self.drone_pos_initial(log, lat, range)
+        return log,lat, range
         
     def predict(self, u: Optional[np.ndarray] = None) -> None:
         """
@@ -399,29 +302,6 @@ class RAPIDKF:
         u_var = M_1
 
         return u, u_var 
-
-    def inject_flood_fixed_point(self, flood_vector, index = 0, water = 20):
-        """
-        Simulate the flood injection, index is the reach ID to inject, water is the discharge
-
-        Returns:
-            np.ndarray: vector of added flood discharge of each each
-        """
-        flood_vector[index] = water
-        return flood_vector
-    
-    def inject_flood_gaussian(self, flood_vector, index = 0, water = 20):
-        """
-        Simulate the flood injection, index is the reach ID to inject, water is the discharge
-
-        Returns:
-            np.ndarray: vector of added flood discharge of each each
-        """
-        num_reaches = self.u[0].shape[0] 
-        r_peak = num_reaches // 4  
-        # Gaussian-distributed rainfall 
-        flood_vector = 5 * np.exp(-((np.arange(num_reaches) - r_peak) ** 2) / (2 * sigma ** 2))
-        return flood_vector  
     
     def get_state(self) -> np.ndarray:
         """
@@ -440,7 +320,6 @@ class RAPIDKF:
             np.ndarray: Current discharge.
         """
         return self.Q0
-    
     def Qout_nc(self, m3r_ncf, Qou_ncf, IV_bas_tot):
         """
         Generates a netCDF file for the river discharge comparison.
@@ -528,7 +407,6 @@ class RAPIDKF:
         # -------------------------------------------------------------------------
         f.close()
         g.close()
-
 
 if __name__ == '__main__':
     rapid_kf = RAPIDKF(load_mode=1)

@@ -37,10 +37,10 @@ class RAPIDKF:
         """
         np.random.seed(42)
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.sub_dir_path = "model_saved_3hour_w_input"
+        self.sub_dir_path = "model_saved_3hour_flood2"
         # Create directory if it doesn't exist
-        if not os.path.exists(os.path.join(dir_path, "model_saved_3hour_w_input")):
-            os.makedirs(os.path.join(dir_path, "model_saved_3hour_w_input"), exist_ok=True)
+        if not os.path.exists(os.path.join(dir_path, self.sub_dir_path)):
+            os.makedirs(os.path.join(dir_path, self.sub_dir_path), exist_ok=True)
         self.epsilon: float = 0  # Muskingum parameter threshold
         self.radius: int = 20
         self.i_factor: float = 2.58  # Enforced on covariance P
@@ -194,7 +194,8 @@ class RAPIDKF:
             "original_inflow.csv",
             "discharge_from_obs1.csv",
             "open_loop_est.csv",
-            "discharge_only_flood.csv"
+            "discharge_only_flood.csv",
+            "percentile_90.csv"
         ]
         
         file_paths = [os.path.join(dir_path, file) for file in file_names]
@@ -209,9 +210,14 @@ class RAPIDKF:
             discharge_obs_kf1 = np.loadtxt(file_paths[3], delimiter=",")
             open_loop_x = np.loadtxt(file_paths[4], delimiter=",")
             discharge_only_flood = np.loadtxt(file_paths[5], delimiter=",")
+            percentile_90 = np.loadtxt(file_paths[6], delimiter=",")
         
         else:
             print("Some files are missing. Proceeding with the full simulation...")     
+            # Find the 90th percentile along each column (axis=0 for each reach)
+            percentile_90 = np.percentile(self.u, 90, axis=0)  
+            np.savetxt(os.path.join(dir_path, "percentile_90.csv"), percentile_90, delimiter=",")
+            
             '''
             Open-loop simulation only added flood(predict inflow every 3 hours)
             '''
@@ -221,11 +227,11 @@ class RAPIDKF:
                 for i in range(evolution_steps):
                     # Unkown input
                     index = timestep * evolution_steps + i
-                    if timestep <= 15:
+                    inject_flood_inflow[index] = copy.deepcopy(self.u[index])
+                    
+                    if timestep <= 10:
                         added_flood[index][0] = 20
-                        
                         origin_inflow[index] = self.u[index]
-                        inject_flood_inflow[index] = copy.deepcopy(self.u[index])
                         inject_flood_inflow[index] += added_flood[index]
                         
                     self.predict(added_flood[index])

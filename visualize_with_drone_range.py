@@ -4,12 +4,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 from matplotlib.animation import FuncAnimation
+from matplotlib.patches import Circle
 import os
 
 # Set the base path for the model
-# model_path = "./model_saved_3hour_w_input"
 model_path = "./model_saved_3hour_flood3"
 file_name = "discharge_only_flood"
+file_name = "drone1_flood_est"
+file_name_pos = "drone1_pos"
 # Load the shapefile
 shp_path = "./rapid_data/NHDFlowline_San_Guad/NHDFlowline_San_Guad.shp"
 shp_data = gpd.read_file(shp_path)
@@ -17,7 +19,9 @@ days = 20
 
 # Load the estimation of discharge data without treating the first row as the header
 discharge_data_path = f"{model_path}/{file_name}.csv"
+drone_data_path = f"{model_path}/{file_name_pos}.csv"
 discharge_data = pd.read_csv(discharge_data_path, header=None)
+drone_data = pd.read_csv(drone_data_path, header=None)
 
 # Load the reach ID data without treating the first row as the header
 reach_id_data_path = "./rapid_data/riv_bas_id_San_Guad_hydroseq.csv"
@@ -42,7 +46,7 @@ shp_sub = shp_data[shp_data['strmOrder'] > 0]
 Qcols = [col for col in shp_sub.columns if col.startswith('Q')]
 
 # To set color bar range
-globQmax = max(shp_sub[Qcols[0:days]].max().max(), 40  )
+globQmax = max(shp_sub[Qcols[0:days]].max().max(), 40)
 
 # Set up color and line width gradients
 colfun = plt.cm.viridis
@@ -63,8 +67,20 @@ def update(i):
     colors = colfun(norm(Q))
     lwds = np.interp(Q, (0, globQmax), (0.15, 12))
     
+    # Plot the river network
     shp_sub.plot(ax=ax[0], color=colors, linewidth=lwds)
     ax[0].set_title(f"Discharge at Day {i+1}")
+    ax[0].set_xlim(shp_sub.total_bounds[0], shp_sub.total_bounds[2])
+    ax[0].set_ylim(shp_sub.total_bounds[1], shp_sub.total_bounds[3])
+    
+    # Plot the drone location and sensing range
+    log, lat, sensing_range = drone_data.iloc[i]
+    ax[0].plot(log, lat, 'ro', markersize=10, label='Drone Location')  # Red dot for the drone
+    circle = Circle((log, lat), sensing_range, color='r', alpha=0.05, label='Sensing Range')
+    ax[0].add_patch(circle)
+    
+    # Add legend
+    ax[0].legend(loc='upper right')
     
     # Color bar plotting
     sm = plt.cm.ScalarMappable(cmap=colfun, norm=norm)
