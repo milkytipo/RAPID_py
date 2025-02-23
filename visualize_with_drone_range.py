@@ -11,6 +11,7 @@ import os
 model_path = "./model_saved_3hour_flood3"
 file_name = "discharge_only_flood"
 file_name = "drone1_flood_est"
+file_name = "drone1_discharge_est"
 file_name_pos = "drone1_pos"
 # Load the shapefile
 shp_path = "./rapid_data/NHDFlowline_San_Guad/NHDFlowline_San_Guad.shp"
@@ -67,17 +68,17 @@ def update(i):
     colors = colfun(norm(Q))
     lwds = np.interp(Q, (0, globQmax), (0.15, 12))
     
-    # Plot the river network
-    shp_sub.plot(ax=ax[0], color=colors, linewidth=lwds)
-    ax[0].set_title(f"Discharge at Day {i+1}")
-    ax[0].set_xlim(shp_sub.total_bounds[0], shp_sub.total_bounds[2])
-    ax[0].set_ylim(shp_sub.total_bounds[1], shp_sub.total_bounds[3])
-    
     # Plot the drone location and sensing range
     log, lat, sensing_range = drone_data.iloc[i]
     ax[0].plot(log, lat, 'ro', markersize=10, label='Drone Location')  # Red dot for the drone
     circle = Circle((log, lat), sensing_range, color='r', alpha=0.05, label='Sensing Range')
     ax[0].add_patch(circle)
+    
+    # Plot the river network
+    shp_sub.plot(ax=ax[0], color=colors, linewidth=lwds)
+    ax[0].set_title(f"Discharge at Day {i+1}")
+    ax[0].set_xlim(shp_sub.total_bounds[0], shp_sub.total_bounds[2])
+    ax[0].set_ylim(shp_sub.total_bounds[1], shp_sub.total_bounds[3])
     
     # Add legend
     ax[0].legend(loc='upper right')

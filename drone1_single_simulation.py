@@ -128,7 +128,8 @@ class RAPIDKF:
             "discharge_from_obs1.csv",
             "open_loop_est.csv",
             "discharge_only_flood.csv",
-            "percentile_90.csv"
+            "percentile_90.csv",
+            "obs_synthetic.csv"
         ]
         
         file_paths = [os.path.join(dir_path, file) for file in file_names]
@@ -144,6 +145,7 @@ class RAPIDKF:
             open_loop_x = np.loadtxt(file_paths[4], delimiter=",")
             discharge_only_flood = np.loadtxt(file_paths[5], delimiter=",")
             percentile_90 = np.loadtxt(file_paths[6], delimiter=",")
+            obs_synthetic = np.loadtxt(file_paths[7], delimiter=",")
         else:
             print('Data is needed')
             
@@ -171,7 +173,7 @@ class RAPIDKF:
                 self.x += self.u[timestep * evolution_steps + i]  / evolution_steps
                 # self.x += added_flood[timestep * evolution_steps + i] / evolution_steps
                 
-            gt_obs = discharge_obs_kf1[timestep] + discharge_only_flood[timestep]
+            gt_obs = obs_synthetic[timestep]
             gt_obs = self.S @ gt_obs
             self.update(gt_obs, timestep, True)
 

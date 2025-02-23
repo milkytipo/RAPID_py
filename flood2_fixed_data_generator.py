@@ -175,6 +175,8 @@ class RAPIDKF:
         open_loop_x = []
         flood_est = []
         obs_synthetic = []
+        obs_synthetic_only_flood = []
+        obs_synthetic_kf1 = []
         
         self.H = np.dot(self.S, self.Ae_day)
         self.Q0 = np.zeros_like(self.u[0])
@@ -236,6 +238,8 @@ class RAPIDKF:
                         
                     self.predict(added_flood[index])
                     discharge_only_flood[timestep] += self.update_discharge()/evolution_steps
+                
+                obs_synthetic_only_flood.append(self.Ae_day @ self.x)
 
             np.savetxt(os.path.join(dir_path, "injected_flood.csv"), added_flood, delimiter=",")
             np.savetxt(os.path.join(dir_path, "inject_w_inflow.csv"), inject_flood_inflow, delimiter=",")
@@ -258,6 +262,7 @@ class RAPIDKF:
                 
                 self.update(self.obs_data[timestep], timestep)
                 
+                obs_synthetic_kf1.append(self.Ae_day @ self.x)
                 for i in range(evolution_steps):
                     discharge_obs_kf1[timestep] += self.update_discharge()/evolution_steps
                 
@@ -292,7 +297,7 @@ class RAPIDKF:
         self.Q0 = np.zeros_like(self.u[0])
         
         for timestep in tqdm(range(self.days)):
-            obs_synthetic.append(discharge_obs_kf1[timestep] + discharge_only_flood[timestep])
+            obs_synthetic.append(obs_synthetic_only_flood[timestep] + obs_synthetic_kf1[timestep])
             
         np.savetxt(os.path.join(dir_path, "obs_synthetic.csv"), obs_synthetic, delimiter=",")
 
@@ -307,7 +312,7 @@ class RAPIDKF:
                 
             self.timestep += 1
 
-            gt_obs = discharge_obs_kf1[timestep] + discharge_only_flood[timestep]
+            gt_obs = obs_synthetic[timestep]
             gt_obs = self.S @ gt_obs
             self.update(gt_obs, timestep, True)
 

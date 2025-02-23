@@ -153,7 +153,7 @@ class RAPIDKF:
         with open(os.path.join(dir_path, dis_name), 'wb') as f:
             pickle.dump(saved_dict, f)
 
-    def simulate_flood(self, sim_mode: int = 1) -> None:
+    def simulate_flood(self, sim_mode: int = 0) -> None:
         """
         Simulates the Kalman Filter model.
 
@@ -176,6 +176,8 @@ class RAPIDKF:
         open_loop_x = []
         flood_est = []
         obs_synthetic = []
+        obs_synthetic_only_flood = []
+        obs_synthetic_kf1 = []
         
         self.H = np.dot(self.S, self.Ae_day)
         self.Q0 = np.zeros_like(self.u[0])
@@ -224,7 +226,7 @@ class RAPIDKF:
             '''
             peak_reach_id = 1000 
             peak_day = 10
-            max_rainfall = 0.3
+            max_rainfall = 1
             rainfall_dict, reach_id_to_index = self.generate_gaussian_rainfall(peak_reach_id, max_rainfall)
             for timestep in tqdm(range(self.days)):
                 self.x = np.zeros_like(self.u[0])
@@ -247,6 +249,8 @@ class RAPIDKF:
 
                     self.predict(added_flood[index])
                     discharge_only_flood[timestep] += self.update_discharge()/evolution_steps
+                
+                obs_synthetic_only_flood.append(self.Ae_day @ self.x)
 
             np.savetxt(os.path.join(dir_path, "injected_flood.csv"), added_flood, delimiter=",")
             np.savetxt(os.path.join(dir_path, "inject_w_inflow.csv"), inject_flood_inflow, delimiter=",")
@@ -269,6 +273,7 @@ class RAPIDKF:
                 
                 self.update(self.obs_data[timestep], timestep)
                 
+                obs_synthetic_kf1.append(self.Ae_day @ self.x)
                 for i in range(evolution_steps):
                     discharge_obs_kf1[timestep] += self.update_discharge()/evolution_steps
                 
@@ -296,14 +301,14 @@ class RAPIDKF:
         '''
         Simulation under synthetic data
         '''
-        # self.S = np.eye(self.P.shape[0])
+        self.S = np.eye(self.P.shape[0])
         self.H = np.dot(self.S, self.Ae_day)
         self.B = self.S.T
         self.timestep = 0
         self.Q0 = np.zeros_like(self.u[0])
         
         for timestep in tqdm(range(self.days)):
-            obs_synthetic.append(discharge_obs_kf1[timestep] + discharge_only_flood[timestep])
+            obs_synthetic.append(obs_synthetic_only_flood[timestep] + obs_synthetic_kf1[timestep])
             
         np.savetxt(os.path.join(dir_path, "obs_synthetic.csv"), obs_synthetic, delimiter=",")
 
@@ -318,7 +323,7 @@ class RAPIDKF:
                 
             self.timestep += 1
 
-            gt_obs = discharge_obs_kf1[timestep] + discharge_only_flood[timestep]
+            gt_obs = obs_synthetic[timestep]
             gt_obs = self.S @ gt_obs
             self.update(gt_obs, timestep, True)
 
@@ -430,7 +435,7 @@ class RAPIDKF:
     
     def inject_flood_gaussian(self, cur_day, peak_day, flood_vector, rainfall_dict, reach_id_to_index):
         # Apply Gaussian rainfall directly to reaches in rainfall_dict
-        sigma = 5
+        sigma = 2
         for reach_id, rain_value in rainfall_dict.items():
             if rain_value > 0:  # Only apply rainfall if it's nonzero
                 reach_index = reach_id_to_index.get(reach_id)  # Convert Reach ID to sorted index

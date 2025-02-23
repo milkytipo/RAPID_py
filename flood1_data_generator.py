@@ -172,6 +172,8 @@ class RAPIDKF:
         state_estimation = []
         discharge_estimation = []
         open_loop_x = []
+        obs_synthetic_only_flood = []
+        obs_synthetic_kf1 = []
 
         self.H = np.dot(self.S, self.Ae_day)
         self.Q0 = np.zeros_like(self.u[0])
@@ -199,6 +201,8 @@ class RAPIDKF:
                     
                 self.predict(added_flood[index])
                 discharge_only_flood[timestep] += self.update_discharge()/evolution_steps
+            
+            obs_synthetic_only_flood.append(self.Ae_day @ self.x)
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
         dir_path = os.path.join(dir_path,self.sub_dir_path)
@@ -222,6 +226,7 @@ class RAPIDKF:
             
             self.update(self.obs_data[timestep], timestep)
             
+            obs_synthetic_kf1.append(self.Ae_day @ self.x)
             for i in range(evolution_steps):
                 discharge_obs_kf1[timestep] += self.update_discharge()/evolution_steps
             
@@ -243,7 +248,10 @@ class RAPIDKF:
 
             discharge_avg /= evolution_steps
             open_loop_x.append(discharge_avg)
-        
+            
+        for timestep in tqdm(range(self.days)):
+            obs_synthetic.append(obs_synthetic_only_flood[timestep] + obs_synthetic_kf1[timestep])
+            
         '''
         Simulation under synthetic data
         '''
@@ -261,8 +269,8 @@ class RAPIDKF:
                 
             self.timestep += 1
 
-            gt_obs = discharge_obs_kf1[timestep] + discharge_only_flood[timestep]
-            gt_obs = self.H @ gt_obs
+            gt_obs = obs_synthetic[timestep]
+            gt_obs = self.S @ gt_obs
             self.update(gt_obs, timestep)
 
             for i in range(evolution_steps):
