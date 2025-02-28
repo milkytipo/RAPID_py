@@ -11,7 +11,8 @@ import os
 model_path = "./model_saved_3hour_flood3"
 file_name = "discharge_only_flood"
 file_name = "drone1_flood_est"
-file_name = "drone1_discharge_est"
+# file_name = "drone1_discharge_est"
+file_name = "prob_flood_map"
 file_name_pos = "drone1_pos"
 # Load the shapefile
 shp_path = "./rapid_data/NHDFlowline_San_Guad/NHDFlowline_San_Guad.shp"
@@ -47,7 +48,7 @@ shp_sub = shp_data[shp_data['strmOrder'] > 0]
 Qcols = [col for col in shp_sub.columns if col.startswith('Q')]
 
 # To set color bar range
-globQmax = max(shp_sub[Qcols[0:days]].max().max(), 40)
+globQmax = max(shp_sub[Qcols[0:days]].max().max(), 0)
 
 # Set up color and line width gradients
 colfun = plt.cm.viridis

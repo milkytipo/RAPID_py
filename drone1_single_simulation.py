@@ -162,6 +162,8 @@ class RAPIDKF:
         self.timestep = 0
         self.Q0 = np.zeros_like(self.u[0])
         drone_pos = []
+        prob_flood_map = []
+        prob_flood_est = np.zeros_like(self.u[0])
 
         for timestep in tqdm(range(self.days)):
             discharge_avg = np.zeros_like(self.u[0])
@@ -186,6 +188,11 @@ class RAPIDKF:
             discharge_estimation.append(discharge_avg)
             flood_est.append(self.S.T @ self.u_flood)
             
+            prob_flood_obs = self.sigmoid_prob(self.u_flood, percentile_90)
+            prob_flood_est = self.flood_prob_update(prob_flood_obs, self.S)
+            
+            prob_flood_map.append(prob_flood_est)
+            
             # Dynamics of drone
             self.timestep += 1
             log, lat, sensing_range = self.drone_pos_update(log,lat,sensing_range)
@@ -197,9 +204,10 @@ class RAPIDKF:
         np.savetxt(os.path.join(dir_path, "drone1_river_lateral_est.csv"), state_estimation, delimiter=",")
         np.savetxt(os.path.join(dir_path, "drone1_flood_est.csv"), flood_est, delimiter=",")
         np.savetxt(os.path.join(dir_path, "drone1_pos.csv"), drone_pos, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "prob_flood_map.csv"), prob_flood_map, delimiter=",")
         g.close()
     
-    def drone_pos_initial(self, log, lat, range):
+    def drone_pos_initial(self, log, lat, sensing_range):
         # Load the ordered reach coordinates with Euclidean distances
         ordered_reach_coords = utility.river_geo_info()
         ordered_reach_coords["Distance to Center"] = np.sqrt(
@@ -207,27 +215,89 @@ class RAPIDKF:
             (ordered_reach_coords["Start Latitude"] - lat) ** 2
         )
         # Find the 1000 closest reaches
-        closest_reaches = ordered_reach_coords[ordered_reach_coords["Distance to Center"] < range]
-        sensing_id = closest_reaches["Reach ID"].values
+        closest_reaches = ordered_reach_coords[ordered_reach_coords["Distance to Center"] < sensing_range]
+        sensing_ids = closest_reaches["Reach ID"].values
         sorted_ids_path = "./rapid_data/riv_bas_id_San_Guad_hydroseq.csv"
         sorted_ids = pd.read_csv(sorted_ids_path, header=None, names=['Reach ID'])  # Assuming no header
-
-        S_mat = np.zeros((len(sensing_id), len(sorted_ids)), dtype=int)
-        for i, obs in enumerate(sensing_id):
+            
+        S_mat = np.zeros((len(sensing_ids), len(sorted_ids)), dtype=int)
+        for i, obs in enumerate(sensing_ids):
             index = np.where(sorted_ids == obs)[0]
             S_mat[i, index] = 1
         
         H_mat = np.dot(S_mat, self.Ae_day)
-        
         self.S = S_mat
         self.H = H_mat
         self.B = self.S.T
+        
+        # Find the reach at the boundary of sensing range
+        connectivity_path = "./rapid_data/rapid_connect_San_Guad.csv"
+        connect_data = pd.read_csv(connectivity_path, header=None)
+        column_names = ['id', 'downId', 'numUp', 'upId1', 'upId2', 'upId3', 'upId4']
+        connect_data.columns = column_names
+        
+        boundary_reach_id = []
+        far_reaches = ordered_reach_coords[ordered_reach_coords["Distance to Center"] > 0.95*sensing_range]
+        far_ids = far_reaches["Reach ID"].values
+        for sensing_id in sensing_ids:
+            down_row_index =  connect_data[connect_data['id'] == sensing_id]
+            
+            for i in range(1,5):
+                up_id = down_row_index[f'upId{i}'].values[0]
+                if up_id in sensing_ids:
+                    break
+                if i == 4 and sensing_id in far_ids:
+                    boundary_reach_id.append(sensing_id)
+        
+        boundary_id_transform = np.zeros(len(sorted_ids))   
+        for b_id in boundary_reach_id:
+            index = np.where(sorted_ids == b_id)[0]
+            boundary_id_transform[index] = 1
+        
+        
+        self.boundary_id_transform = boundary_id_transform
     
     def drone_pos_update(self, log, lat, range):
         range *= 1.1
         self.drone_pos_initial(log, lat, range)
         return log,lat, range
+    
+    def sigmoid_prob(self, values, percentiles):
+        percentiles = self.S @ percentiles
+        # percentiles = self.S @ ( percentiles *0 + 10)
         
+        # Calculate probabilities using the sigmoid function
+        probabilities = 1 / (1 + np.exp(-(values - percentiles)))
+        
+        return probabilities
+    
+    def flood_prob_update(self, prob_flood_obs, S):
+        S = S.T
+        rows, cols = S.shape
+        output = np.zeros_like(S)
+        
+        # Iterate through each column
+        for j in range(cols):
+            col = S[:, j]
+            first_one_index = np.argmax(col)  # Find the index of the '1'
+            output[:first_one_index + 1, j] = 1  # Fill ones until and including the '1'
+
+        prob_flood_obs1 = (S.T @ self.boundary_id_transform) * prob_flood_obs
+        prob_flood_obs2 = S @ prob_flood_obs
+        flood_prob_map = output @ prob_flood_obs1 + prob_flood_obs2
+        
+        # Element-wise log-odds prob fusion
+        # flood_prob_map = np.zeros(S.shape[0])
+        # for j in range(cols):
+        #     print(prob_flood_obs[j])
+        #     # flood_prob_map *= (1 - output[:, j] * prob_flood_obs[j])
+        #     # flood_prob_map += np.log(prob_flood_obs[j]/(1-prob_flood_obs[j])) * output[:, j]
+        #     print(flood_prob_map[j])
+        # log_odds = np.log(prob_flood_obs/(1-prob_flood_obs)) 
+        # flood_prob_map = 1 / (1+np.exp(-log_odds))
+        
+        return flood_prob_map
+            
     def predict(self, u: Optional[np.ndarray] = None) -> None:
         """
         Predicts the next state of the system.
@@ -322,6 +392,7 @@ class RAPIDKF:
             np.ndarray: Current discharge.
         """
         return self.Q0
+    
     def Qout_nc(self, m3r_ncf, Qou_ncf, IV_bas_tot):
         """
         Generates a netCDF file for the river discharge comparison.

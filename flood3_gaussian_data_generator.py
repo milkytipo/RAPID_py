@@ -153,7 +153,7 @@ class RAPIDKF:
         with open(os.path.join(dir_path, dis_name), 'wb') as f:
             pickle.dump(saved_dict, f)
 
-    def simulate_flood(self, sim_mode: int = 0) -> None:
+    def simulate_flood(self, sim_mode: int = 1) -> None:
         """
         Simulates the Kalman Filter model.
 
@@ -236,7 +236,7 @@ class RAPIDKF:
                     index = timestep * evolution_steps + i
                     inject_flood_inflow[index] = copy.deepcopy(self.u[index])
                     
-                    if timestep <= 15:
+                    if timestep <= 20:
                         added_flood[index] = self.inject_flood_gaussian(
                                                             timestep,
                                                             peak_day,
@@ -335,9 +335,8 @@ class RAPIDKF:
 
             state_estimation.append(copy.deepcopy(self.get_state()))
             discharge_estimation.append(discharge_avg)
-            
             flood_est.append(self.S.T @ self.u_flood)
-
+            
         # Save results to the created directory
         Qout_df = pd.DataFrame(Qout[:])
         Qout_df.to_csv(os.path.join(dir_path, "Qout.csv"), index=False)
