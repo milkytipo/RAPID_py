@@ -152,7 +152,7 @@ class RAPIDKF:
         with open(os.path.join(dir_path, dis_name), 'wb') as f:
             pickle.dump(saved_dict, f)
 
-    def simulate_flood(self, sim_mode: int = 0) -> None:
+    def simulate_flood(self, sim_mode: int = 1) -> None:
         """
         Simulates the Kalman Filter model.
 
@@ -203,7 +203,7 @@ class RAPIDKF:
         file_paths = [os.path.join(dir_path, file) for file in file_names]
 
         # Check if all files exist
-        if all(os.path.exists(file) for file in file_paths):
+        if all(os.path.exists(file) for file in file_paths) and sim_mode == 0:
             print("All CSV files exist. Loading data instead of recalculating...")
 
             added_flood = np.loadtxt(file_paths[0], delimiter=",")
@@ -290,7 +290,7 @@ class RAPIDKF:
         '''
         Simulation under synthetic data
         '''
-        # self.S = np.eye(self.P.shape[0])
+        self.S = np.eye(self.P.shape[0])
         self.H = np.dot(self.S, self.Ae_day)
         self.B = self.S.T
         self.timestep = 0
@@ -324,7 +324,6 @@ class RAPIDKF:
 
             state_estimation.append(copy.deepcopy(self.get_state()))
             discharge_estimation.append(discharge_avg)
-            
             flood_est.append(self.S.T @ self.u_flood)
 
         # Save results to the created directory

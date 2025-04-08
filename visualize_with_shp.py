@@ -8,7 +8,7 @@ import os
 
 # Set the base path for the model
 # model_path = "./model_saved_3hour_w_input"
-model_path = "./model_saved_3hour_flood3"
+model_path = "./model_saved_3hour_flood2"
 file_name = "discharge_est"
 # Load the shapefile
 shp_path = "./rapid_data/NHDFlowline_San_Guad/NHDFlowline_San_Guad.shp"

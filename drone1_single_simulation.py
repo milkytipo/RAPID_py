@@ -38,7 +38,7 @@ class RAPIDKF:
         """
         np.random.seed(42)
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.sub_dir_path = "model_saved_3hour_flood3"
+        self.sub_dir_path = "model_saved_3hour_flood2"
         # Create directory if it doesn't exist
         if not os.path.exists(os.path.join(dir_path, self.sub_dir_path)):
             os.makedirs(os.path.join(dir_path, self.sub_dir_path), exist_ok=True)
@@ -190,7 +190,7 @@ class RAPIDKF:
             
             prob_flood_obs = self.sigmoid_prob(self.u_flood, percentile_90)
             prob_flood_est = self.flood_prob_update(prob_flood_obs, self.S)
-            
+            prob_flood_est2 = np.linspace(0, 1, num=5175)
             prob_flood_map.append(prob_flood_est)
             
             # Dynamics of drone
@@ -267,7 +267,8 @@ class RAPIDKF:
         # percentiles = self.S @ ( percentiles *0 + 10)
         
         # Calculate probabilities using the sigmoid function
-        probabilities = 1 / (1 + np.exp(-(values - percentiles)))
+        # probabilities = 1 / (1 + np.exp(-(values - percentiles)))
+        probabilities = 1 / (1 + np.exp(-(values/ (percentiles+values + 1e-3))))
         
         return probabilities
     
@@ -282,9 +283,11 @@ class RAPIDKF:
             first_one_index = np.argmax(col)  # Find the index of the '1'
             output[:first_one_index + 1, j] = 1  # Fill ones until and including the '1'
 
+        # only calculate the probability at the boundary to upper stream section
         prob_flood_obs1 = (S.T @ self.boundary_id_transform) * prob_flood_obs
         prob_flood_obs2 = S @ prob_flood_obs
         flood_prob_map = output @ prob_flood_obs1 + prob_flood_obs2
+        flood_prob_map = output @ prob_flood_obs1
         
         # Element-wise log-odds prob fusion
         # flood_prob_map = np.zeros(S.shape[0])
