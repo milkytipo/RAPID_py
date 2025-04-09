@@ -15,6 +15,8 @@ import netCDF4
 from datetime import datetime, timezone
 from tqdm import tqdm
 from utility import find_rank_and_rightmost_columns
+from pyproj import Transformer
+import  collections 
 
 class RAPIDKF:
     """
@@ -155,7 +157,9 @@ class RAPIDKF:
         # self.S = np.eye(self.P.shape[0])
         log = -97
         lat = 29
-        sensing_range = 0.5
+        sensing_range = 20 #km
+        sensing_range_degree = 0.18 # 20km
+        
         self.drone_pos_initial(log, lat, sensing_range)
         # self.H = np.dot(self.S, self.Ae_day)
         self.B = self.S.T
@@ -164,38 +168,39 @@ class RAPIDKF:
         drone_pos = []
         prob_flood_map = []
         prob_flood_est = np.zeros_like(self.u[0])
-
+        iter_per_day = 1
         for timestep in tqdm(range(self.days)):
-            discharge_avg = np.zeros_like(self.u[0])
-            self.x = np.zeros_like(self.u[0])
-            drone_pos.append((log,lat,sensing_range))
-            
-            # Kalman Filter estimation (updates every 3 hours)
-            for i in range(evolution_steps):
-                self.x += self.u[timestep * evolution_steps + i]  / evolution_steps
-                # self.x += added_flood[timestep * evolution_steps + i] / evolution_steps
+            for _ in range(iter_per_day):
+                discharge_avg = np.zeros_like(self.u[0])
+                self.x = np.zeros_like(self.u[0])
+                drone_pos.append((log,lat,sensing_range_degree))
                 
-            gt_obs = obs_synthetic[timestep]
-            gt_obs = self.S @ gt_obs
-            self.update(gt_obs, timestep, True)
+                # Kalman Filter estimation (updates every 3 hours)
+                for i in range(evolution_steps):
+                    self.x += self.u[timestep * evolution_steps + i]  / evolution_steps
+                    # self.x += added_flood[timestep * evolution_steps + i] / evolution_steps
+                    
+                gt_obs = obs_synthetic[timestep]
+                gt_obs = self.S @ gt_obs
+                self.update(gt_obs, timestep, True)
 
-            for i in range(evolution_steps):
-                discharge_avg += self.update_discharge()
+                for i in range(evolution_steps):
+                    discharge_avg += self.update_discharge()
 
-            discharge_avg /= evolution_steps
-            Qout[timestep, :] = discharge_avg[:]
-            state_estimation.append(copy.deepcopy(self.get_state()))
-            discharge_estimation.append(discharge_avg)
-            flood_est.append(self.S.T @ self.u_flood)
-            
-            prob_flood_obs = self.sigmoid_prob(self.u_flood, percentile_90)
-            prob_flood_est = self.flood_prob_update(prob_flood_obs, self.S)
-            prob_flood_est2 = np.linspace(0, 1, num=5175)
-            prob_flood_map.append(prob_flood_est)
-            
-            # Dynamics of drone
-            self.timestep += 1
-            log, lat, sensing_range = self.drone_pos_update(log,lat,sensing_range)
+                discharge_avg /= evolution_steps
+                Qout[timestep, :] = discharge_avg[:]
+                state_estimation.append(copy.deepcopy(self.get_state()))
+                discharge_estimation.append(discharge_avg)
+                flood_est.append(self.S.T @ self.u_flood)
+                
+                prob_flood_obs = self.sigmoid_prob(self.u_flood, percentile_90)
+                prob_flood_est = self.flood_prob_update(prob_flood_obs, self.S)
+                prob_flood_est2 = np.linspace(0, 1, num=5175)
+                prob_flood_map.append(prob_flood_est)
+                
+                # Dynamics of drone
+                self.timestep += 1
+                log, lat, sensing_range = self.drone_pos_update(log,lat,sensing_range)
 
         # Save results to the created directory
         Qout_df = pd.DataFrame(Qout[:])
@@ -210,10 +215,17 @@ class RAPIDKF:
     def drone_pos_initial(self, log, lat, sensing_range):
         # Load the ordered reach coordinates with Euclidean distances
         ordered_reach_coords = utility.river_geo_info()
-        ordered_reach_coords["Distance to Center"] = np.sqrt(
-            (ordered_reach_coords["Start Longitude"] - log) ** 2 +
-            (ordered_reach_coords["Start Latitude"] - lat) ** 2
-        )
+
+        transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+        base_x, base_y = transformer.transform(*(log, lat))
+        x, y = transformer.transform(ordered_reach_coords["Start Longitude"].to_numpy() , 
+                                     ordered_reach_coords["Start Latitude"].to_numpy())
+        ordered_reach_coords["Distance to Center"] = np.sqrt((np.array(x) - base_x) ** 2 + (np.array(y) - base_y) ** 2)/1000
+        # ordered_reach_coords["Distance to Center"] = np.sqrt(
+        #     (ordered_reach_coords["Start Longitude"] - log) ** 2 +
+        #     (ordered_reach_coords["Start Latitude"] - lat) ** 2
+        # )
+        
         # Find the 1000 closest reaches
         closest_reaches = ordered_reach_coords[ordered_reach_coords["Distance to Center"] < sensing_range]
         sensing_ids = closest_reaches["Reach ID"].values
@@ -237,28 +249,45 @@ class RAPIDKF:
         connect_data.columns = column_names
         
         boundary_reach_id = []
-        far_reaches = ordered_reach_coords[ordered_reach_coords["Distance to Center"] > 0.95*sensing_range]
-        far_ids = far_reaches["Reach ID"].values
         for sensing_id in sensing_ids:
             down_row_index =  connect_data[connect_data['id'] == sensing_id]
-            
             for i in range(1,5):
                 up_id = down_row_index[f'upId{i}'].values[0]
-                if up_id in sensing_ids:
-                    break
-                if i == 4 and sensing_id in far_ids:
+                numUP = down_row_index[f'numUp'].values[0]
+                if up_id in sensing_ids or up_id == 0 or numUP == 0:
+                    continue
+                else:
                     boundary_reach_id.append(sensing_id)
         
-        boundary_id_transform = np.zeros(len(sorted_ids))   
+        S = self.S.T
+        rows, cols = S.shape
+        integeral_upstreams = np.zeros_like(S)
+        boundary_id_v = np.zeros(len(sensing_ids))   
         for b_id in boundary_reach_id:
-            index = np.where(sorted_ids == b_id)[0]
-            boundary_id_transform[index] = 1
-        
-        
-        self.boundary_id_transform = boundary_id_transform
-    
+            index = np.where(sensing_ids == b_id)[0]
+            boundary_id_v[index] = 1
+            
+            deque = collections.deque()
+            deque.append(b_id)
+            while deque:
+                pop_id = deque.popleft()
+                down_row_index =  connect_data[connect_data['id'] == pop_id]
+                for i in range(1,5):
+                    up_id = down_row_index[f'upId{i}'].values[0]
+                    numUP = down_row_index[f'numUp'].values[0]
+                    if up_id != 0 and numUP!= 0:
+                        row = np.where(sorted_ids == up_id)[0]
+                        integeral_upstreams[row,index] = 1
+                        deque.append(up_id)
+                        
+        self.integeral_upstreams = integeral_upstreams
+        self.boundary_id_transform = boundary_id_v
+   
+   
     def drone_pos_update(self, log, lat, range):
-        range *= 1.1
+        # range *= 1.1
+        log -= 0.2
+        lat += 0.1
         self.drone_pos_initial(log, lat, range)
         return log,lat, range
     
@@ -273,21 +302,21 @@ class RAPIDKF:
         return probabilities
     
     def flood_prob_update(self, prob_flood_obs, S):
+        # S maps observed id to the real river network
         S = S.T
         rows, cols = S.shape
-        output = np.zeros_like(S)
-        
-        # Iterate through each column
-        for j in range(cols):
-            col = S[:, j]
-            first_one_index = np.argmax(col)  # Find the index of the '1'
-            output[:first_one_index + 1, j] = 1  # Fill ones until and including the '1'
+        # output = np.zeros_like(S)
+        # # Iterate through each column
+        # for j in range(cols):
+        #     col = S[:, j]
+        #     first_one_index = np.argmax(col)  # Find the index of the '1'
+        #     output[:first_one_index + 1, j] = 1  # Fill ones until and including the '1'
 
         # only calculate the probability at the boundary to upper stream section
-        prob_flood_obs1 = (S.T @ self.boundary_id_transform) * prob_flood_obs
+        prob_flood_obs1 = self.integeral_upstreams @ self.boundary_id_transform
         prob_flood_obs2 = S @ prob_flood_obs
-        flood_prob_map = output @ prob_flood_obs1 + prob_flood_obs2
-        flood_prob_map = output @ prob_flood_obs1
+        # flood_prob_map = output @ prob_flood_obs1 + prob_flood_obs2
+        flood_prob_map = prob_flood_obs1
         
         # Element-wise log-odds prob fusion
         # flood_prob_map = np.zeros(S.shape[0])
