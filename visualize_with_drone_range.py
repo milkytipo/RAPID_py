@@ -51,7 +51,7 @@ Qcols = [col for col in shp_sub.columns if col.startswith('Q')]
 globQmax = max(shp_sub[Qcols[0:days]].max().max(), 0)
 
 # Set up color and line width gradients
-colfun = plt.cm.viridis
+colfun = plt.cm.inferno
 lwdRamp = np.linspace(0.15, 12, 50)
 
 # Create a figure and axes

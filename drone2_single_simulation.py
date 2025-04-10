@@ -309,7 +309,7 @@ class RAPIDKF:
         # only calculate the probability at the boundary to upper stream section
         prob_flood_obs1 = self.integeral_upstreams @ self.boundary_id_transform
         prob_flood_obs2 = S @ prob_flood_obs
-        flood_prob_map = prob_flood_obs1 
+        flood_prob_map = prob_flood_obs1 + prob_flood_obs2
         
         return flood_prob_map
             
