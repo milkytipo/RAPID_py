@@ -4,8 +4,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import scipy.sparse as sp
 import scipy.sparse.linalg as splinalg
-
-
+import numpy as np
+import matplotlib.pyplot as plt
+from geopy.distance import geodesic
 import numpy as np
 
 import numpy as np
@@ -74,6 +75,49 @@ def river_geo_info():
     merged_reach_info.to_csv(output_path, index=False)
     
     return merged_reach_info
+
+def geodesic_distance(p1, p2):
+    return geodesic(p1, p2).meters
+
+def partition_nodes(latitudes, longitudes, reach_ids, drone_positions):
+    node_positions = list(zip(latitudes, longitudes))
+    assignment = {}
+    for idx, pos in enumerate(node_positions):
+        distances = [geodesic_distance(pos, tuple(drone)) for drone in drone_positions]
+        assigned_drone = np.argmin(distances)
+        assignment[reach_ids[idx]] = assigned_drone
+    return assignment
+
+def compute_centroids(latitudes, longitudes, reach_ids, assignment, flood_prob_map, drone_count):
+    centroids = []
+    for i in range(drone_count):
+        assigned_indices = [idx for idx, rid in enumerate(reach_ids) if assignment[rid] == i]
+        if not assigned_indices:
+            centroids.append(None)
+            continue
+        total_weight = np.sum(flood_prob_map[assigned_indices])
+        if total_weight == 0:
+            centroids.append(None)
+            continue
+        weighted_lats = np.sum(latitudes[assigned_indices] * flood_prob_map[assigned_indices])
+        weighted_lons = np.sum(longitudes[assigned_indices] * flood_prob_map[assigned_indices])
+        centroid = [weighted_lats / total_weight, weighted_lons / total_weight]
+        centroids.append(centroid)
+    return centroids
+
+def move_towards(start, goal, step_size=100):  # step in meters
+    if goal is None:
+        return start
+    start_tuple, goal_tuple = tuple(start), tuple(goal)
+    total_distance = geodesic(start_tuple, goal_tuple).meters
+    if total_distance <= step_size:
+        return goal
+    direction = np.array(goal) - np.array(start)
+    unit_vector = direction / np.linalg.norm(direction)
+    approx_step_deg = step_size / 111000.0  # ~degree per 100km (rough conversion)
+    return (np.array(start) + unit_vector * approx_step_deg).tolist()
+
+
 class PreProcessor:
     """
     A class responsible for preprocessing the data required by the Kalman Filter model.
