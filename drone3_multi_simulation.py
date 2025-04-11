@@ -17,7 +17,7 @@ from tqdm import tqdm
 from utility import find_rank_and_rightmost_columns
 from pyproj import Transformer
 import  collections 
-from utility import geodesic_distance, partition_nodes, compute_centroids, move_towards
+from utility import geodesic_distance, partition_nodes, compute_centroids, move_towards, generate_unique_transform_matrices
 
 class RAPIDKF:
     """
@@ -158,13 +158,13 @@ class RAPIDKF:
         # self.S = np.eye(self.P.shape[0])
         # log = -97
         # lat = 29
-        sensing_range = 100 #km
-        sensing_range_degree = 0.18 # 20km
+        sensing_range = 20 #km
+        sensing_range_degree = sensing_range/110 # 20km
         n = 4
         lat = np.random.uniform(28.5, 30.25, size=n)
         log = np.random.uniform(-99.5, -97.0, size=n)
-        # lat = np.random.uniform(28, 29, size=n)
-        # log = np.random.uniform(-99, -97.0, size=n)
+        # lat = np.random.uniform(29, 29, size=n)
+        # log = np.random.uniform(-97, -97.0, size=n)
         drone_positions = np.stack((lat, log), axis=1)
         print(drone_positions)
         
@@ -179,6 +179,7 @@ class RAPIDKF:
         iter_per_day = 1
         ordered_reach_coords = utility.river_geo_info()
         for timestep in tqdm(range(self.days)):
+            for _ in range(iter_per_day):    
                 discharge_avg = np.zeros_like(self.u[0])
                 self.x = np.zeros_like(self.u[0])
                 drone_pos.append(drone_positions)
@@ -208,23 +209,25 @@ class RAPIDKF:
                 
                 # Dynamics of drone
                 self.timestep += 1
-                # assignment = partition_nodes(
-                #         ordered_reach_coords["Start Latitude"],
-                #         ordered_reach_coords["Start Longitude"],
-                #         ordered_reach_coords["Reach ID"],
-                #         drone_positions
-                #     )
-                # centroids = compute_centroids(
-                #         ordered_reach_coords["Start Latitude"],
-                #         ordered_reach_coords["Start Longitude"],
-                #         ordered_reach_coords["Reach ID"],
-                #         assignment,
-                #         prob_flood_map[timestep],
-                #         drone_count=len(drone_positions)
-                #     )
-                # drone_positions = np.array([
-                #     move_towards(drone_positions[i], centroids[i]) for i in range(len(drone_positions))
-                # ])
+                assignment = partition_nodes(
+                        ordered_reach_coords["Start Latitude"],
+                        ordered_reach_coords["Start Longitude"],
+                        ordered_reach_coords["Reach ID"],
+                        drone_positions
+                    )
+                centroids = compute_centroids(
+                        ordered_reach_coords["Start Latitude"],
+                        ordered_reach_coords["Start Longitude"],
+                        ordered_reach_coords["Reach ID"],
+                        assignment,
+                        prob_flood_map[timestep],
+                        drone_count=len(drone_positions)
+                    )
+                drone_positions = np.array([
+                    move_towards(drone_positions[i], centroids[i]) for i in range(len(drone_positions))
+                ])
+                
+                self.drone_pos_update(drone_positions, sensing_range)
 
         # Save results to the created directory
         Qout_df = pd.DataFrame(Qout[:])
@@ -241,12 +244,21 @@ class RAPIDKF:
         
         # Load the ordered reach coordinates with Euclidean distances
         ordered_reach_coords = utility.river_geo_info()
-
         transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
         sensing_ids_fleet = []
+        S_fleet_list = []
         S_fleet = []
-        for idx, (lat,log) in enumerate(drone_positions):
+        drones_observed_id = []
         
+        # create default probability map for river network
+        x, y = transformer.transform(ordered_reach_coords["Start Longitude"].to_numpy() , 
+                                        ordered_reach_coords["Start Latitude"].to_numpy())
+        base_x, base_y = x[-1], y[-1]
+        default_prob_map = np.sqrt((np.array(x) - base_x) ** 2 + (np.array(y) - base_y) ** 2)/1000
+        default_prob_map /= default_prob_map[0]
+        self.default_prob_map = (1 - default_prob_map)*0.5
+            
+        for idx, (lat,log) in enumerate(drone_positions):
             base_x, base_y = transformer.transform(*(log, lat))
             x, y = transformer.transform(ordered_reach_coords["Start Longitude"].to_numpy() , 
                                         ordered_reach_coords["Start Latitude"].to_numpy())
@@ -255,20 +267,34 @@ class RAPIDKF:
             # Find the 1000 closest reaches
             closest_reaches = ordered_reach_coords[ordered_reach_coords["Distance to Center"] < sensing_range]
             sensing_ids = closest_reaches["Reach ID"].values
-            sensing_ids_fleet += sensing_ids.tolist()
+
             sorted_ids_path = "./rapid_data/riv_bas_id_San_Guad_hydroseq.csv"
             sorted_ids = pd.read_csv(sorted_ids_path, header=None, names=['Reach ID'])  # Assuming no header
-            
             S_mat = np.zeros((len(sensing_ids), len(sorted_ids)), dtype=int)
             if len(sensing_ids) != 0:
+                drones_observed_id.append(sensing_ids)
                 for i, obs in enumerate(sensing_ids):
                     index = np.where(sorted_ids == obs)[0]
                     S_mat[i, index] = 1
                 
-                if len(S_fleet) == 0:
-                    S_fleet = S_mat
-                else:
-                    S_fleet = np.concatenate((S_fleet,S_mat), axis = 0)
+                S_fleet_list.append(S_mat)
+                # if len(S_fleet) == 0:
+                #     S_fleet = S_mat
+                # else:
+                #     S_fleet = np.concatenate((S_fleet,S_mat), axis = 0)
+        
+        filtered_ids, transform_matrices = generate_unique_transform_matrices(drones_observed_id, ordered_reach_coords["Reach ID"])
+        
+        for i, (idx, transform_matrix) in enumerate(zip(filtered_ids, transform_matrices)):
+            sensing_ids_fleet += idx.tolist()
+            S_fleet_list[i] = transform_matrix @ S_fleet_list[i]
+            
+            if len(S_fleet) == 0:
+                S_fleet = S_fleet_list[i]
+            else:
+                S_fleet = np.concatenate((S_fleet,S_fleet_list[i]), axis = 0)
+    
+        # self.transform_matrices = transform_matrices
         
         H_mat = np.dot(S_fleet, self.Ae_day)
         self.S = S_fleet
@@ -292,6 +318,7 @@ class RAPIDKF:
                 else:
                     boundary_reach_id.append(sensing_id)
         
+        sensing_ids_fleet = np.array(sensing_ids_fleet)
         S = self.S.T
         rows, cols = S.shape
         integeral_upstreams = np.zeros_like(S)
@@ -308,7 +335,7 @@ class RAPIDKF:
                 for i in range(1,5):
                     up_id = down_row_index[f'upId{i}'].values[0]
                     numUP = down_row_index[f'numUp'].values[0]
-                    if up_id != 0 and numUP!= 0:
+                    if up_id != 0 and numUP!= 0 and up_id not in sensing_ids_fleet:
                         row = np.where(sorted_ids == up_id)[0]
                         integeral_upstreams[row,index] = 1
                         deque.append(up_id)
@@ -316,48 +343,30 @@ class RAPIDKF:
         self.integeral_upstreams = integeral_upstreams
         self.boundary_id_transform = boundary_id_v
    
-    def drone_pos_update(self, drone_positions, range):
+    def drone_pos_update(self, drone_positions, sensing_range):
         # range *= 1.1
         # log -= 0.2
         # lat += 0.1
-        self.drone_fleet_pos_initial(drone_positions, range)
+        self.drone_fleet_pos_initial(drone_positions, sensing_range)
     
     def sigmoid_prob(self, values, percentiles):
         percentiles = self.S @ percentiles
         # percentiles = self.S @ ( percentiles *0 + 10)
-        
+        delta = values - percentiles
         # Calculate probabilities using the sigmoid function
         # probabilities = 1 / (1 + np.exp(-(values - percentiles)))
         probabilities = 1 / (1 + np.exp(-(values/ (percentiles+values + 1e-3))))
+        # probabilities = 1 - np.exp(-delta)
         
         return probabilities
     
     def flood_prob_update(self, prob_flood_obs, S):
         # S maps observed id to the real river network
         S = S.T
-        rows, cols = S.shape
-        # output = np.zeros_like(S)
-        # # Iterate through each column
-        # for j in range(cols):
-        #     col = S[:, j]
-        #     first_one_index = np.argmax(col)  # Find the index of the '1'
-        #     output[:first_one_index + 1, j] = 1  # Fill ones until and including the '1'
-
         # only calculate the probability at the boundary to upper stream section
         prob_flood_obs1 = self.integeral_upstreams @ (self.boundary_id_transform * prob_flood_obs)
         prob_flood_obs2 = S @ prob_flood_obs
-        # flood_prob_map = output @ prob_flood_obs1 + prob_flood_obs2
-        flood_prob_map = prob_flood_obs2
-        
-        # Element-wise log-odds prob fusion
-        # flood_prob_map = np.zeros(S.shape[0])
-        # for j in range(cols):
-        #     print(prob_flood_obs[j])
-        #     # flood_prob_map *= (1 - output[:, j] * prob_flood_obs[j])
-        #     # flood_prob_map += np.log(prob_flood_obs[j]/(1-prob_flood_obs[j])) * output[:, j]
-        #     print(flood_prob_map[j])
-        # log_odds = np.log(prob_flood_obs/(1-prob_flood_obs)) 
-        # flood_prob_map = 1 / (1+np.exp(-log_odds))
+        flood_prob_map =  self.default_prob_map + prob_flood_obs1 + prob_flood_obs2
         
         return flood_prob_map
             

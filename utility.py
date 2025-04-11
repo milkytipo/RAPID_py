@@ -11,6 +11,36 @@ import numpy as np
 
 import numpy as np
 
+def generate_unique_transform_matrices(drone_obs_id, all_ids):
+    """
+    Args:
+        drone_obs_id: List of lists (or 1D np arrays), each list contains IDs observed by a drone
+        all_ids: 1D np array of all valid reach IDs
+
+    Returns:
+        filtered_ids: List of np arrays of filtered IDs for each drone
+        transform_matrices: List of 2D binary matrices for each drone
+    """
+    seen_ids = set()
+    filtered_ids = []
+    transform_matrices = []
+
+    for obs in drone_obs_id:
+        obs = np.array(obs)
+        mask = np.array([id_ not in seen_ids for id_ in obs])
+        unique_obs = obs[mask]
+        filtered_ids.append(unique_obs)
+
+        # Create transformation matrix (keep only rows for unique observations)
+        transform_matrix = np.eye(len(obs))[mask]
+        transform_matrices.append(transform_matrix)
+
+        # Update the seen set
+        seen_ids.update(unique_obs.tolist())
+
+    return filtered_ids, transform_matrices
+
+
 def find_rank_and_rightmost_columns(matrix, tol=1e-10):
     """
     Given an m x n matrix, return its rank and the rightmost column indices that contribute to the rank.
@@ -105,7 +135,7 @@ def compute_centroids(latitudes, longitudes, reach_ids, assignment, flood_prob_m
         centroids.append(centroid)
     return centroids
 
-def move_towards(start, goal, step_size=100):  # step in meters
+def move_towards(start, goal, step_size=10000):  # step in meters
     if goal is None:
         return start
     start_tuple, goal_tuple = tuple(start), tuple(goal)

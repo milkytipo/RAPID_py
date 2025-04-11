@@ -297,8 +297,8 @@ class RAPIDKF:
         delta = values - percentiles
         # Calculate probabilities using the sigmoid function
         # probabilities = 1 / (1 + np.exp(-(values - percentiles)))
-        # probabilities = 1 / (1 + np.exp(-(values/ (percentiles+values + 1e-3))))
-        probabilities = 1 - np.exp(-delta)
+        probabilities = 1 / (1 + np.exp(-(values/ (percentiles+values + 1e-3))))
+        # probabilities = 1 - np.exp(-delta)
         
         return probabilities
     
@@ -307,9 +307,9 @@ class RAPIDKF:
         S = S.T
 
         # only calculate the probability at the boundary to upper stream section
-        prob_flood_obs1 = self.integeral_upstreams @ self.boundary_id_transform
+        prob_flood_obs1 = self.integeral_upstreams @ (self.boundary_id_transform * prob_flood_obs)
         prob_flood_obs2 = S @ prob_flood_obs
-        flood_prob_map = prob_flood_obs1 
+        flood_prob_map = prob_flood_obs2
         
         return flood_prob_map
             
