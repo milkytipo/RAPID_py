@@ -41,7 +41,7 @@ class RAPIDKF:
         """
         np.random.seed(42)
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.sub_dir_path = "model_saved_3hour_flood2"
+        self.sub_dir_path = "model_saved_3hour_flood3"
         # Create directory if it doesn't exist
         if not os.path.exists(os.path.join(dir_path, self.sub_dir_path)):
             os.makedirs(os.path.join(dir_path, self.sub_dir_path), exist_ok=True)
@@ -179,7 +179,7 @@ class RAPIDKF:
         iter_per_day = 1
         ordered_reach_coords = utility.river_geo_info()
         for timestep in tqdm(range(self.days)):
-            for _ in range(iter_per_day):    
+            for idx_day in range(iter_per_day):    
                 discharge_avg = np.zeros_like(self.u[0])
                 self.x = np.zeros_like(self.u[0])
                 drone_pos.append(drone_positions)
@@ -204,7 +204,6 @@ class RAPIDKF:
                 
                 prob_flood_obs = self.sigmoid_prob(self.u_flood, percentile_90)
                 prob_flood_est = self.flood_prob_update(prob_flood_obs, self.S)
-                prob_flood_est2 = np.linspace(0, 1, num=5175)
                 prob_flood_map.append(prob_flood_est)
                 
                 # Dynamics of drone
@@ -220,12 +219,16 @@ class RAPIDKF:
                         ordered_reach_coords["Start Longitude"],
                         ordered_reach_coords["Reach ID"],
                         assignment,
-                        prob_flood_map[timestep],
+                        prob_flood_map[timestep*iter_per_day + idx_day],
                         drone_count=len(drone_positions)
                     )
+                print(f"New position")
+                print(f"{drone_positions} | {centroids}")
                 drone_positions = np.array([
                     move_towards(drone_positions[i], centroids[i]) for i in range(len(drone_positions))
                 ])
+                print(f"New position")
+                print(f"{drone_positions}")
                 
                 self.drone_pos_update(drone_positions, sensing_range)
 
@@ -256,7 +259,7 @@ class RAPIDKF:
         base_x, base_y = x[-1], y[-1]
         default_prob_map = np.sqrt((np.array(x) - base_x) ** 2 + (np.array(y) - base_y) ** 2)/1000
         default_prob_map /= default_prob_map[0]
-        self.default_prob_map = (1 - default_prob_map)*0.5
+        self.default_prob_map = (1 - default_prob_map + 1e-5) * 0.1
             
         for idx, (lat,log) in enumerate(drone_positions):
             base_x, base_y = transformer.transform(*(log, lat))
@@ -355,8 +358,8 @@ class RAPIDKF:
         delta = values - percentiles
         # Calculate probabilities using the sigmoid function
         # probabilities = 1 / (1 + np.exp(-(values - percentiles)))
-        probabilities = 1 / (1 + np.exp(-(values/ (percentiles+values + 1e-3))))
-        # probabilities = 1 - np.exp(-delta)
+        # probabilities = 1 / (1 + np.exp(-(values/ (percentiles+values + 1e-3))))
+        probabilities = 1 - np.exp(-delta)
         
         return probabilities
     
@@ -366,8 +369,8 @@ class RAPIDKF:
         # only calculate the probability at the boundary to upper stream section
         prob_flood_obs1 = self.integeral_upstreams @ (self.boundary_id_transform * prob_flood_obs)
         prob_flood_obs2 = S @ prob_flood_obs
-        flood_prob_map =  self.default_prob_map + prob_flood_obs1 + prob_flood_obs2
-        
+        flood_prob_map =  prob_flood_obs1  + prob_flood_obs2 + self.default_prob_map
+        flood_prob_map =  np.ones(S.shape[0]) 
         return flood_prob_map
             
     def predict(self, u: Optional[np.ndarray] = None) -> None:
