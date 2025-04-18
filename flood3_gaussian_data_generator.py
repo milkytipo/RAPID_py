@@ -198,7 +198,8 @@ class RAPIDKF:
             "discharge_from_obs1.csv",
             "open_loop_est.csv",
             "discharge_only_flood.csv",
-            "percentile_90.csv"
+            "percentile_90.csv",
+            "percentile_90_x.csv",
         ]
         
         file_paths = [os.path.join(dir_path, file) for file in file_names]
@@ -213,13 +214,14 @@ class RAPIDKF:
             discharge_obs_kf1 = np.loadtxt(file_paths[3], delimiter=",")
             open_loop_x = np.loadtxt(file_paths[4], delimiter=",")
             discharge_only_flood = np.loadtxt(file_paths[5], delimiter=",")
-            percentile_90 = np.loadtxt(file_paths[6], delimiter=",")
+            percentile_90_u = np.loadtxt(file_paths[6], delimiter=",")
+            percentile_90_x = np.loadtxt(file_paths[7], delimiter=",")
         
         else:
             print("Some files are missing. Proceeding with the full simulation...")  
             # Find the 90th percentile along each column (axis=0 for each reach)
-            percentile_90 = np.percentile(self.u, 90, axis=0)  
-            np.savetxt(os.path.join(dir_path, "percentile_90.csv"), percentile_90, delimiter=",")
+            percentile_90_u = np.percentile(self.u, 90, axis=0)  
+            np.savetxt(os.path.join(dir_path, "percentile_90.csv"), percentile_90_u, delimiter=",")
             
             '''
             Open-loop simulation only added flood(predict inflow every 3 hours)
@@ -278,6 +280,8 @@ class RAPIDKF:
                     discharge_obs_kf1[timestep] += self.update_discharge()/evolution_steps
                 
             np.savetxt(os.path.join(dir_path, "discharge_from_obs1.csv"), discharge_obs_kf1, delimiter=",")
+            percentile_90_x = np.percentile(discharge_obs_kf1, 90, axis=0)  
+            np.savetxt(os.path.join(dir_path, "percentile_90_x.csv"), percentile_90_x, delimiter=",")
             
             '''
             Open-loop simulation with added flood 

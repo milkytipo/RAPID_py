@@ -166,7 +166,7 @@ class RAPIDKF:
         self.timestep = 0
         self.Q0 = np.zeros_like(self.u[0])
         drone_pos = []
-        prob_flood_map = []
+        prob_u_flood_map = []
         prob_flood_est = np.zeros_like(self.u[0])
         iter_per_day = 1
         for timestep in tqdm(range(self.days)):
@@ -193,10 +193,10 @@ class RAPIDKF:
                 discharge_estimation.append(discharge_avg)
                 flood_est.append(self.S.T @ self.u_flood)
                 
-                prob_flood_obs = self.sigmoid_prob(self.u_flood, percentile_90)
+                prob_flood_obs = self.sigmoid_prob(self.u_flood, self.S @ percentile_90)
                 prob_flood_est = self.flood_prob_update(prob_flood_obs, self.S)
                 prob_flood_est2 = np.linspace(0, 1, num=5175)
-                prob_flood_map.append(prob_flood_est)
+                prob_u_flood_map.append(prob_flood_est)
                 
                 # Dynamics of drone
                 self.timestep += 1
@@ -209,7 +209,7 @@ class RAPIDKF:
         np.savetxt(os.path.join(dir_path, "drone1_river_lateral_est.csv"), state_estimation, delimiter=",")
         np.savetxt(os.path.join(dir_path, "drone1_flood_est.csv"), flood_est, delimiter=",")
         np.savetxt(os.path.join(dir_path, "drone1_pos.csv"), drone_pos, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "prob_flood_map.csv"), prob_flood_map, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "prob_u_flood_map.csv"), prob_u_flood_map, delimiter=",")
         g.close()
     
     def drone_pos_initial(self, log, lat, sensing_range):
@@ -292,7 +292,7 @@ class RAPIDKF:
         return log,lat, range
     
     def sigmoid_prob(self, values, percentiles):
-        percentiles = self.S @ percentiles
+        # percentiles = self.S @ percentiles
         # percentiles = self.S @ ( percentiles *0 + 10)
         delta = values - percentiles
         # Calculate probabilities using the sigmoid function

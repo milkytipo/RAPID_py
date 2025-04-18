@@ -11,13 +11,15 @@ import os
 model_path = "./model_saved_3hour_flood3"
 file_name = "discharge_only_flood"
 # file_name = "drone1_flood_est"
-# file_name = "drone1_discharge_est"
-# file_name = "prob_flood_map"
+file_name = "drone1_discharge_est"
+file_name = "prob_target_map"
+file_name = "prob_x_flood_map"
+# file_name = "coverage_area_map"
 file_name_pos = "drone1_pos"
 # Load the shapefile
 shp_path = "./rapid_data/NHDFlowline_San_Guad/NHDFlowline_San_Guad.shp"
 shp_data = gpd.read_file(shp_path)
-days = 100
+days = 20
 
 # Load the estimation of discharge data without treating the first row as the header
 discharge_data_path = f"{model_path}/{file_name}.csv"
@@ -53,6 +55,7 @@ globQmax = max(shp_sub[Qcols[0:days]].max().max(), 0)
 
 # Set up color and line width gradients
 colfun = plt.cm.viridis
+colfun = plt.cm.inferno
 lwdRamp = np.linspace(0.15, 12, 50)
 
 # Create a figure and axes
@@ -90,7 +93,7 @@ def update(i):
     
     for idx in range((drones_pos.shape[0])):
         lat, log = drones_pos[idx]
-        sensing_range = 0.18
+        sensing_range = 0.18 * 2.5
         ax[0].plot(log, lat, 'ro', markersize=10, label=f'{idx}th Drone Location ')  # Red dot for the drone
         circle = Circle((log, lat), sensing_range, color='r', alpha=0.05, label='Sensing Range')
         ax[0].add_patch(circle)
