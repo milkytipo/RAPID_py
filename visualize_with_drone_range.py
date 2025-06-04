@@ -11,9 +11,9 @@ import os
 model_path = "./model_saved_3hour_flood3"
 file_name = "discharge_only_flood"
 file_name = "drone1_flood_est"
-# file_name = "drone1_discharge_est"
-file_name = "prob_flood_map"
-file_name = "discharge_est"
+file_name = "drone1_discharge_est"
+# file_name = "prob_flood_map"
+# file_name = "discharge_est"
 file_name_pos = "drone1_pos"
 # Load the shapefile
 shp_path = "./rapid_data/NHDFlowline_San_Guad/NHDFlowline_San_Guad.shp"

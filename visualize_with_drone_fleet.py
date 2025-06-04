@@ -8,13 +8,14 @@ from matplotlib.patches import Circle
 import os
 
 # Set the base path for the model
-model_path = "./model_saved_3hour_flood3"
+model_path = "./model_saved_3hour_flood2"
 file_name = "discharge_only_flood"
-# file_name = "drone1_flood_est"
+file_name = "drone1_flood_est"
 file_name = "drone1_discharge_est"
-file_name = "prob_target_map"
-file_name = "prob_x_flood_map"
+# file_name = "prob_target_map"
+# file_name = "prob_x_flood_map"
 # file_name = "coverage_area_map"
+# file_name = "discharge_est"
 file_name_pos = "drone1_pos"
 # Load the shapefile
 shp_path = "./rapid_data/NHDFlowline_San_Guad/NHDFlowline_San_Guad.shp"
@@ -94,6 +95,7 @@ def update(i):
     for idx in range((drones_pos.shape[0])):
         lat, log = drones_pos[idx]
         sensing_range = 0.18 * 2.5
+        sensing_range = 0.18
         ax[0].plot(log, lat, 'ro', markersize=10, label=f'{idx}th Drone Location ')  # Red dot for the drone
         circle = Circle((log, lat), sensing_range, color='r', alpha=0.05, label='Sensing Range')
         ax[0].add_patch(circle)

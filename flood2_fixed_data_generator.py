@@ -192,10 +192,10 @@ class RAPIDKF:
 
         file_names = [
             "injected_flood.csv",
-            "inject_w_inflow.csv",
+            "sim_flood_with_origin_inflow.csv",
             "original_inflow.csv",
-            "discharge_from_obs1.csv",
-            "open_loop_est.csv",
+            "discharge_est_from_origin_gauge.csv",
+            "discharge_open_loop_simflood_with_origin_inflow.csv",
             "discharge_only_flood.csv",
             "percentile_90.csv",
             "percentile_90_x.csv",
@@ -241,10 +241,10 @@ class RAPIDKF:
                     self.predict(added_flood[index])
                     discharge_only_flood[timestep] += self.update_discharge()/evolution_steps
                 
-                obs_synthetic_only_flood.append(self.Ae_day @ self.x)
+                obs_synthetic_only_flood.append(discharge_only_flood[timestep]) 
 
             np.savetxt(os.path.join(dir_path, "injected_flood.csv"), added_flood, delimiter=",")
-            np.savetxt(os.path.join(dir_path, "inject_w_inflow.csv"), inject_flood_inflow, delimiter=",")
+            np.savetxt(os.path.join(dir_path, "sim_flood_with_origin_inflow.csv"), inject_flood_inflow, delimiter=",")
             np.savetxt(os.path.join(dir_path, "original_inflow.csv"), origin_inflow, delimiter=",")
             np.savetxt(os.path.join(dir_path, "discharge_only_flood.csv"), discharge_only_flood, delimiter=",")
             
@@ -264,11 +264,12 @@ class RAPIDKF:
                 
                 self.update(self.obs_data[timestep], timestep)
                 
-                obs_synthetic_kf1.append(self.Ae_day @ self.x)
                 for i in range(evolution_steps):
                     discharge_obs_kf1[timestep] += self.update_discharge()/evolution_steps
+
+                obs_synthetic_kf1.append(discharge_obs_kf1[timestep])
                 
-            np.savetxt(os.path.join(dir_path, "discharge_from_obs1.csv"), discharge_obs_kf1, delimiter=",")
+            np.savetxt(os.path.join(dir_path, "discharge_est_from_origin_gauge.csv"), discharge_obs_kf1, delimiter=",")
             percentile_90_x = np.percentile(discharge_obs_kf1, 90, axis=0)  
             np.savetxt(os.path.join(dir_path, "percentile_90_x.csv"), percentile_90_x, delimiter=",")
             
@@ -289,7 +290,7 @@ class RAPIDKF:
                 discharge_avg /= evolution_steps
                 open_loop_x.append(discharge_avg)
                 
-            np.savetxt(os.path.join(dir_path, "open_loop_est.csv"), open_loop_x, delimiter=",")
+            np.savetxt(os.path.join(dir_path, "discharge_open_loop_simflood_with_origin_inflow.csv"), open_loop_x, delimiter=",")
         
         '''
         Simulation under synthetic data
@@ -334,8 +335,8 @@ class RAPIDKF:
         Qout_df = pd.DataFrame(Qout[:])
         Qout_df.to_csv(os.path.join(dir_path, "Qout.csv"), index=False)
         np.savetxt(os.path.join(dir_path, "discharge_est.csv"), discharge_estimation, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "river_lateral_est.csv"), state_estimation, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "flood_est.csv"), flood_est, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "river_lateral_est_ground_truth_flood.csv"), state_estimation, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "flood_est_ground_truth.csv"), flood_est, delimiter=",")
         g.close()
         
     def predict(self, u: Optional[np.ndarray] = None) -> None:

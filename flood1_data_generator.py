@@ -172,6 +172,7 @@ class RAPIDKF:
         state_estimation = []
         discharge_estimation = []
         open_loop_x = []
+        obs_synthetic = []
         obs_synthetic_only_flood = []
         obs_synthetic_kf1 = []
 
@@ -207,7 +208,7 @@ class RAPIDKF:
         dir_path = os.path.dirname(os.path.realpath(__file__))
         dir_path = os.path.join(dir_path,self.sub_dir_path)
         np.savetxt(os.path.join(dir_path, "injected_flood.csv"), added_flood, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "inject_w_inflow.csv"), inject_flood_inflow, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "sim_flood_with_origin_inflow.csv"), inject_flood_inflow, delimiter=",")
         np.savetxt(os.path.join(dir_path, "original_inflow.csv"), origin_inflow, delimiter=",")
         
         '''
@@ -230,7 +231,7 @@ class RAPIDKF:
             for i in range(evolution_steps):
                 discharge_obs_kf1[timestep] += self.update_discharge()/evolution_steps
             
-        np.savetxt(os.path.join(dir_path, "discharge_from_obs1.csv"), discharge_obs_kf1, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "discharge_est_from_origin_gauge.csv"), discharge_obs_kf1, delimiter=",")
         
         '''
         Open-loop simulation with added flood 
@@ -288,8 +289,8 @@ class RAPIDKF:
         Qout_df = pd.DataFrame(Qout[:])
         Qout_df.to_csv(os.path.join(dir_path, "Qout.csv"), index=False)
         np.savetxt(os.path.join(dir_path, "discharge_est.csv"), discharge_estimation, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "river_lateral_est.csv"), state_estimation, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "open_loop_est.csv"), open_loop_x, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "river_lateral_est_ground_truth_flood.csv"), state_estimation, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "discharge_open_loop_simflood_with_origin_inflow.csv"), open_loop_x, delimiter=",")
         g.close()
         
     def predict(self, u: Optional[np.ndarray] = None) -> None:

@@ -125,10 +125,10 @@ class RAPIDKF:
 
         file_names = [
             "injected_flood.csv",
-            "inject_w_inflow.csv",
+            "sim_flood_with_origin_inflow.csv",
             "original_inflow.csv",
-            "discharge_from_obs1.csv",
-            "open_loop_est.csv",
+            "discharge_est_from_origin_gauge.csv",
+            "discharge_open_loop_simflood_with_origin_inflow.csv",
             "discharge_only_flood.csv",
             "percentile_90.csv",
             "obs_synthetic.csv"
