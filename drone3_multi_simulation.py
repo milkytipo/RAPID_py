@@ -425,8 +425,8 @@ class RAPIDKF:
         if input_type:
             self.u_flood, self.u_flood_var = self.input_estimation(z)
             self.u_flood[self.u_flood < 0] = 0
-            # if timestep == -1 :
-            self.x = self.x + np.dot(self.B,self.u_flood)
+            if timestep == -1 :
+                self.x = self.x + np.dot(self.B,self.u_flood)
             innovation=  z - np.dot(self.H, self.x)
         else: 
             innovation = z - np.dot(self.H, self.x)
@@ -448,13 +448,13 @@ class RAPIDKF:
         Q0_ave = np.zeros_like(self.Q0)
         for _ in range(12):
             self.Q0 = self.A5 @ self.x + self.A4 @ self.Q0
-            Q0_ave += self.Q0
+            Q0_ave += self.Q0 / 12
             
         # ### Method2
         # self.Q0 = self.H1 @ self.x + self.H2 @ self.Q0
         # Q0_ave = self.Q0
 
-        return Q0_ave / 12
+        return Q0_ave
     
     
     def input_estimation(self,z): 

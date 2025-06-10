@@ -177,6 +177,14 @@ class RAPIDKF:
         obs_synthetic = []
         obs_synthetic_only_flood = []
         obs_synthetic_kf1 = []
+
+        obs_synthetic_2 = []
+        obs_synthetic_only_flood_2 = []
+        obs_synthetic_kf1_2 = []
+
+        obs_synthetic_3 = []
+        obs_synthetic_only_flood_3 = []
+        obs_synthetic_kf1_3 = []
         
         self.H = np.dot(self.S, self.Ae_day)
         self.Q0 = np.zeros_like(self.u[0])
@@ -237,11 +245,15 @@ class RAPIDKF:
                         added_flood[index][0] = 20
                         origin_inflow[index] = self.u[index]
                         inject_flood_inflow[index] += added_flood[index]
-                        
-                    self.predict(added_flood[index])
+                    
+                    self.x += added_flood[index] / evolution_steps
+
+                for i in range(evolution_steps):
                     discharge_only_flood[timestep] += self.update_discharge()/evolution_steps
                 
                 obs_synthetic_only_flood.append(discharge_only_flood[timestep]) 
+                obs_synthetic_only_flood_2.append(discharge_only_flood[timestep] - self.Ae_day @ self.x) 
+                obs_synthetic_only_flood_3.append(self.Ae_day @ self.x + np.dot(self.A0_day, self.Q0)) 
 
             np.savetxt(os.path.join(dir_path, "injected_flood.csv"), added_flood, delimiter=",")
             np.savetxt(os.path.join(dir_path, "sim_flood_with_origin_inflow.csv"), inject_flood_inflow, delimiter=",")
@@ -264,10 +276,16 @@ class RAPIDKF:
                 
                 self.update(self.obs_data[timestep], timestep)
                 
+                obs_synthetic_kf1_3.append((self.Ae_day @ self.x + np.dot(self.A0_day, self.Q0)) ) 
+
+
                 for i in range(evolution_steps):
                     discharge_obs_kf1[timestep] += self.update_discharge()/evolution_steps
 
                 obs_synthetic_kf1.append(discharge_obs_kf1[timestep])
+                obs_synthetic_kf1_2.append(discharge_obs_kf1[timestep] - obs_synthetic_kf1_3[timestep]) 
+                # TODO: NOT ZERO IN OBS2
+
                 
             np.savetxt(os.path.join(dir_path, "discharge_est_from_origin_gauge.csv"), discharge_obs_kf1, delimiter=",")
             percentile_90_x = np.percentile(discharge_obs_kf1, 90, axis=0)  
@@ -284,11 +302,15 @@ class RAPIDKF:
                 self.x = np.zeros_like(self.u[0])
                     
                 for i in range(evolution_steps):
-                    self.predict(inject_flood_inflow[timestep * evolution_steps + i])
-                    discharge_avg += self.update_discharge()
+                    self.x += inject_flood_inflow[timestep * evolution_steps + i] / evolution_steps
+                
+                # open_loop_x.append((self.Ae_day @ self.x + np.dot(self.A0_day, self.Q0)) ) 
 
-                discharge_avg /= evolution_steps
-                open_loop_x.append(discharge_avg)
+                for i in range(evolution_steps):
+                    discharge_avg += self.update_discharge()/evolution_steps
+
+                open_loop_x.append(discharge_avg - (self.Ae_day @ self.x + np.dot(self.A0_day, self.Q0)) )
+                
                 
             np.savetxt(os.path.join(dir_path, "discharge_open_loop_simflood_with_origin_inflow.csv"), open_loop_x, delimiter=",")
         
@@ -303,8 +325,12 @@ class RAPIDKF:
         
         for timestep in tqdm(range(self.days)):
             obs_synthetic.append(obs_synthetic_only_flood[timestep] + obs_synthetic_kf1[timestep])
+            obs_synthetic_2.append(obs_synthetic_kf1_2[timestep])
+            obs_synthetic_3.append(obs_synthetic_kf1_3[timestep])
             
         np.savetxt(os.path.join(dir_path, "obs_synthetic.csv"), obs_synthetic, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "obs_synthetic_2.csv"), obs_synthetic_2, delimiter=",")
+        np.savetxt(os.path.join(dir_path, "obs_synthetic_3.csv"), obs_synthetic_3, delimiter=",")
 
         for timestep in tqdm(range(self.days)):
             discharge_avg = np.zeros_like(self.u[0])
@@ -313,11 +339,14 @@ class RAPIDKF:
             # Kalman Filter estimation (updates every 3 hours)
             for i in range(evolution_steps):
                 self.x += self.u[timestep * evolution_steps + i]  / evolution_steps
-                # self.x += added_flood[timestep * evolution_steps + i] / evolution_steps
+                self.x += added_flood[timestep * evolution_steps + i] / evolution_steps
+
+                # TODO: test remove the second input and call input_estimation
                 
             self.timestep += 1
 
             gt_obs = obs_synthetic[timestep]
+            gt_obs = obs_synthetic_kf1_3[timestep]
             gt_obs = self.S @ gt_obs
             self.update(gt_obs, timestep, True)
 
@@ -366,7 +395,8 @@ class RAPIDKF:
         
         if input_type:
             self.u_flood, self.u_flood_var = self.input_estimation(z)
-            self.u_flood[self.u_flood < 0] = 0
+            self.u_flood[self.u_flood < 0] = 0 
+            # if timestep == -1:
             self.x = self.x + np.dot(self.B,self.u_flood)
             innovation=  z - np.dot(self.H, self.x)
         else: 
@@ -389,13 +419,13 @@ class RAPIDKF:
         Q0_ave = np.zeros_like(self.Q0)
         for _ in range(12):
             self.Q0 = self.A5 @ self.x + self.A4 @ self.Q0
-            Q0_ave += self.Q0
+            Q0_ave += self.Q0 / 12
             
         # ### Method2
         # self.Q0 = self.H1 @ self.x + self.H2 @ self.Q0
         # Q0_ave = self.Q0
 
-        return Q0_ave / 12
+        return Q0_ave
     
     
     def input_estimation(self,z): 

@@ -12,6 +12,7 @@ model_path = "./model_saved_3hour_flood2"
 file_name = "discharge_only_flood"
 file_name = "drone1_flood_est"
 file_name = "drone1_discharge_est"
+file_name = "discharge_open_loop_simflood_with_origin_inflow"
 # file_name = "prob_target_map"
 # file_name = "prob_x_flood_map"
 # file_name = "coverage_area_map"
@@ -89,6 +90,7 @@ def update(i):
     cbar = fig.colorbar(sm, cax=ax[1])
     cbar.set_label("Q (cms)")
     
+    print(drone_data.iloc[i].shape)
     # Plot the drone location and sensing range
     drones_pos = drone_data.iloc[i].to_numpy().reshape(-1, 2)
     

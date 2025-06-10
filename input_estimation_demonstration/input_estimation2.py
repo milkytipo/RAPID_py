@@ -112,7 +112,7 @@ for _ in range(N):
     R_tilde = C @ P_pred_naive @ C.T + R
     M = np.linalg.inv(F.T @ np.linalg.inv(R_tilde) @ F) @ F.T @ np.linalg.inv(R_tilde)
     u_naive = M @ (y - C @ x_pred_naive)
-    residual_naive = y - C @ x_pred_naive - G @ u_naive
+    residual_naive = y - C @ x_pred_naive - F @ u_naive
     K_naive = P_pred_naive @ C.T @ np.linalg.inv(C @ P_pred_naive @ C.T + R)
     x_naive_umv = x_pred_naive + G @ u_naive + K_naive @ residual_naive
 

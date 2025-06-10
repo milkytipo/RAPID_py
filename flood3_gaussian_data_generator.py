@@ -249,8 +249,10 @@ class RAPIDKF:
                         origin_inflow[index] = self.u[index]
                         inject_flood_inflow[index] += added_flood[index]
 
-                    self.predict(added_flood[index])
-                    discharge_only_flood[timestep] += self.update_discharge()/evolution_steps
+                        self.x += added_flood[index] / evolution_steps
+
+                    for i in range(evolution_steps):
+                        discharge_only_flood[timestep] += self.update_discharge()/evolution_steps
                 
                 obs_synthetic_only_flood.append(discharge_only_flood[timestep]) 
 
@@ -293,12 +295,13 @@ class RAPIDKF:
             for timestep in tqdm(range(self.days)):
                 discharge_avg = np.zeros_like(self.u[0])
                 self.x = np.zeros_like(self.u[0])
-                    
-                for i in range(evolution_steps):
-                    self.predict(inject_flood_inflow[timestep * evolution_steps + i])
-                    discharge_avg += self.update_discharge()
 
-                discharge_avg /= evolution_steps
+                for i in range(evolution_steps):
+                    self.x += inject_flood_inflow[timestep * evolution_steps + i] / evolution_steps
+                
+                for i in range(evolution_steps):
+                    discharge_avg += self.update_discharge()/evolution_steps
+
                 open_loop_x.append(discharge_avg)
                 
             np.savetxt(os.path.join(dir_path, "discharge_open_loop_simflood_with_origin_inflow.csv"), open_loop_x, delimiter=",")
@@ -400,13 +403,13 @@ class RAPIDKF:
         Q0_ave = np.zeros_like(self.Q0)
         for _ in range(12):
             self.Q0 = self.A5 @ self.x + self.A4 @ self.Q0
-            Q0_ave += self.Q0
+            Q0_ave += self.Q0 / 12
             
         # ### Method2
         # self.Q0 = self.H1 @ self.x + self.H2 @ self.Q0
         # Q0_ave = self.Q0
 
-        return Q0_ave / 12
+        return Q0_ave
     
     
     def input_estimation(self,z): 

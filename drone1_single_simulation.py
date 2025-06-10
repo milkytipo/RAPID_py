@@ -363,13 +363,13 @@ class RAPIDKF:
         Q0_ave = np.zeros_like(self.Q0)
         for _ in range(12):
             self.Q0 = self.A5 @ self.x + self.A4 @ self.Q0
-            Q0_ave += self.Q0
+            Q0_ave += self.Q0 / 12
             
         # ### Method2
         # self.Q0 = self.H1 @ self.x + self.H2 @ self.Q0
         # Q0_ave = self.Q0
 
-        return Q0_ave / 12
+        return Q0_ave
     
     
     def input_estimation(self,z): 
