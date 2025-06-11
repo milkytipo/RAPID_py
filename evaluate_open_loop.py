@@ -11,8 +11,8 @@ obs_reach_ids = pd.read_csv(obs_ids_path, header=None)
 
 # Load the open-loop simulated discharge data
 open_loop_data_path = './model_saved_official/discharge_est_offical.csv'
-open_loop_data_path = './model_saved_3hour/discharge_open_loop_simflood_with_origin_inflow.csv'
-open_loop_data_path = './model_saved_3hour_w_input/discharge_open_loop_simflood_with_origin_inflow.csv'
+open_loop_data_path = './model_saved_3hour_flood2/discharge_open_loop_simflood_with_origin_inflow.csv'
+# open_loop_data_path = './model_saved_3hour_w_input/discharge_open_loop_simflood_with_origin_inflow.csv'
 # open_loop_data_path = './model_saved_official/discharge_est_ave.csv'
 open_loop_data = pd.read_csv(open_loop_data_path, header=None)
 print(f"open_loop_data {open_loop_data} with shape {open_loop_data.shape}")

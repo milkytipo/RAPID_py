@@ -248,17 +248,20 @@ class RAPIDKF:
                     
                     self.x += added_flood[index] / evolution_steps
 
+                obs_synthetic_only_flood_3.append(self.Ae_day @ self.x + np.dot(self.A0_day, self.Q0)) 
+                
                 for i in range(evolution_steps):
                     discharge_only_flood[timestep] += self.update_discharge()/evolution_steps
                 
                 obs_synthetic_only_flood.append(discharge_only_flood[timestep]) 
                 obs_synthetic_only_flood_2.append(discharge_only_flood[timestep] - self.Ae_day @ self.x) 
-                obs_synthetic_only_flood_3.append(self.Ae_day @ self.x + np.dot(self.A0_day, self.Q0)) 
-
+            
             np.savetxt(os.path.join(dir_path, "injected_flood.csv"), added_flood, delimiter=",")
             np.savetxt(os.path.join(dir_path, "sim_flood_with_origin_inflow.csv"), inject_flood_inflow, delimiter=",")
             np.savetxt(os.path.join(dir_path, "original_inflow.csv"), origin_inflow, delimiter=",")
             np.savetxt(os.path.join(dir_path, "discharge_only_flood.csv"), discharge_only_flood, delimiter=",")
+            np.savetxt(os.path.join(dir_path, "discharge_only_flood_2.csv"), obs_synthetic_only_flood_2, delimiter=",")
+            np.savetxt(os.path.join(dir_path, "discharge_only_flood_3.csv"), obs_synthetic_only_flood_3, delimiter=",")
             
             '''
             discharge estimation from original observation (updates every 3 hours)
@@ -277,7 +280,6 @@ class RAPIDKF:
                 self.update(self.obs_data[timestep], timestep)
                 
                 obs_synthetic_kf1_3.append((self.Ae_day @ self.x + np.dot(self.A0_day, self.Q0)) ) 
-
 
                 for i in range(evolution_steps):
                     discharge_obs_kf1[timestep] += self.update_discharge()/evolution_steps
@@ -309,7 +311,7 @@ class RAPIDKF:
                 for i in range(evolution_steps):
                     discharge_avg += self.update_discharge()/evolution_steps
 
-                open_loop_x.append(discharge_avg - (self.Ae_day @ self.x + np.dot(self.A0_day, self.Q0)) )
+                open_loop_x.append(discharge_avg)
                 
                 
             np.savetxt(os.path.join(dir_path, "discharge_open_loop_simflood_with_origin_inflow.csv"), open_loop_x, delimiter=",")
@@ -325,8 +327,8 @@ class RAPIDKF:
         
         for timestep in tqdm(range(self.days)):
             obs_synthetic.append(obs_synthetic_only_flood[timestep] + obs_synthetic_kf1[timestep])
-            obs_synthetic_2.append(obs_synthetic_kf1_2[timestep])
-            obs_synthetic_3.append(obs_synthetic_kf1_3[timestep])
+            obs_synthetic_2.append(obs_synthetic_only_flood_2[timestep] + obs_synthetic_kf1_2[timestep])
+            obs_synthetic_3.append(obs_synthetic_only_flood_3[timestep] + obs_synthetic_kf1_3[timestep])
             
         np.savetxt(os.path.join(dir_path, "obs_synthetic.csv"), obs_synthetic, delimiter=",")
         np.savetxt(os.path.join(dir_path, "obs_synthetic_2.csv"), obs_synthetic_2, delimiter=",")
@@ -339,14 +341,11 @@ class RAPIDKF:
             # Kalman Filter estimation (updates every 3 hours)
             for i in range(evolution_steps):
                 self.x += self.u[timestep * evolution_steps + i]  / evolution_steps
-                self.x += added_flood[timestep * evolution_steps + i] / evolution_steps
+                # self.x += added_flood[timestep * evolution_steps + i] / evolution_steps
 
-                # TODO: test remove the second input and call input_estimation
-                
             self.timestep += 1
 
-            gt_obs = obs_synthetic[timestep]
-            gt_obs = obs_synthetic_kf1_3[timestep]
+            gt_obs = obs_synthetic_3[timestep]
             gt_obs = self.S @ gt_obs
             self.update(gt_obs, timestep, True)
 
@@ -414,7 +413,6 @@ class RAPIDKF:
         Returns:
             np.ndarray: Averaged discharge.
         """
-        Q0 = copy.deepcopy(self.Q0)
         ### Method1
         Q0_ave = np.zeros_like(self.Q0)
         for _ in range(12):

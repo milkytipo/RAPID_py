@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import scipy.sparse as sp
-import scipy.sparse.linalg as splinalg, spsolve_triangular
+import scipy.sparse.linalg as splinalg
 import numpy as np
 import matplotlib.pyplot as plt
 from geopy.distance import geodesic
@@ -337,16 +337,16 @@ class PreProcessor:
         # Calculate 3hour-based dynamics coefficients
         mat_I = np.identity(self.l_reach)
         A1 = mat_I - self.musking_C1 @ self.N
-        # A1_inv = np.linalg.inv(A1)
+        A1_inv = np.linalg.inv(A1)
         # A1_inv[abs(A1_inv) < self.epsilon] = 0  # Filter small values
 
         A2 = self.musking_C1 + self.musking_C2
         A3 = self.musking_C3 + self.musking_C2 @ self.N
 
-        A4 = spsolve_triangular(A1, A3, lower=True, unit_diagonal=True)
-        A5 = spsolve_triangular(A1, A2, lower=True, unit_diagonal=True)
-        # A4 = A1_inv @ A3
-        # A5 = A1_inv @ A2
+        # A4 = spsolve_triangular(A1, A3, lower=True, unit_diagonal=True)
+        # A5 = spsolve_triangular(A1, A2, lower=True, unit_diagonal=True)
+        A4 = A1_inv @ A3
+        A5 = A1_inv @ A2
 
         n_12 = 12  # 3-hourly = 12 * 15mins
         Ae = np.zeros((self.l_reach, self.l_reach))
