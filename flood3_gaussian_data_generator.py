@@ -15,10 +15,9 @@ import netCDF4
 from datetime import datetime, timezone
 from tqdm import tqdm
 from utility import find_rank_and_rightmost_columns
-from flood2_fixed_data_generator import RAPIDKF
 
 
-def inject_flood_gaussian(self, cur_day, peak_day, flood_vector, rainfall_dict, reach_id_to_index):
+def inject_flood_gaussian(cur_day, peak_day, flood_vector, rainfall_dict, reach_id_to_index):
     # Apply Gaussian rainfall directly to reaches in rainfall_dict
     sigma = 2
     for reach_id, rain_value in rainfall_dict.items():
@@ -31,7 +30,7 @@ def inject_flood_gaussian(self, cur_day, peak_day, flood_vector, rainfall_dict, 
     return flood_vector
 
 
-def generate_gaussian_rainfall(self, peak_reach_id = 0, max_rainfall = 5):
+def generate_gaussian_rainfall(peak_reach_id = 0, max_rainfall = 5):
     """
     Simulate the flood injection, index is the reach ID to inject, water is the discharge
 
@@ -90,6 +89,8 @@ def generate_gaussian_rainfall(self, peak_reach_id = 0, max_rainfall = 5):
     # flood_vector = 5 * np.exp(-((np.arange(num_reaches) - r_peak) ** 2) / (2 * sigma ** 2))
     # return flood_vector  
 
+
 if __name__ == '__main__':
+    from flood_data_generator_base import RAPIDKF
     rapid_kf = RAPIDKF(load_mode=1, sub_dir_path="model_saved_3hour_flood3",)
     rapid_kf.simulate_flood(flood_type = "gaussian")

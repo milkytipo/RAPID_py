@@ -14,12 +14,9 @@ from typing import Optional, Dict, Any
 import netCDF4
 from datetime import datetime, timezone
 from tqdm import tqdm
-from utility import find_rank_and_rightmost_columns
-from flood_data_generator_base import RAPIDKF
 
 
-
-def inject_flood_fixed(self, flood_vector):
+def inject_flood_fixed(flood_vector):
     """    
     Simulate the flood injection, index is the reach ID to inject, water is the discharge
     
@@ -32,5 +29,6 @@ def inject_flood_fixed(self, flood_vector):
 
 
 if __name__ == '__main__':
+    from flood_data_generator_base import RAPIDKF
     rapid_kf = RAPIDKF(load_mode=1, sub_dir_path="model_saved_3hour_flood2",)
     rapid_kf.simulate_flood(flood_type = "fixed")
