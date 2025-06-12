@@ -12,16 +12,16 @@ model_path = "./model_saved_3hour_flood2"
 file_name = "discharge_only_flood"
 file_name = "drone1_flood_est"
 file_name = "drone1_discharge_est"
-file_name = "flood_est_ground_truth"
+# file_name = "flood_est_ground_truth"
 # file_name = "prob_target_map"
 # file_name = "prob_x_flood_map"
 # file_name = "coverage_area_map"
-file_name = "discharge_est"
+# file_name = "discharge_est"
 file_name_pos = "drone1_pos"
 # Load the shapefile
 shp_path = "./rapid_data/NHDFlowline_San_Guad/NHDFlowline_San_Guad.shp"
 shp_data = gpd.read_file(shp_path)
-days = 20
+days = 80
 
 # Load the estimation of discharge data without treating the first row as the header
 discharge_data_path = f"{model_path}/{file_name}.csv"

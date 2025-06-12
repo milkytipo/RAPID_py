@@ -49,7 +49,7 @@ class RAPIDKF:
         self.radius: int = 20
         self.i_factor: float = 2.58  # Enforced on covariance P
         self.days: int = 366 + 365 + 365 + 365  # 2010 to 2013
-        self.days: int = 5  # 2010 to 2013
+        self.days: int = 20  # 2010 to 2013
         self.month: int = self.days // 365 * 12
         self.timestep: int = 0
         
@@ -132,7 +132,7 @@ class RAPIDKF:
             "discharge_open_loop_simflood_with_origin_inflow.csv",
             "discharge_only_flood.csv",
             "percentile_90.csv",
-            "obs_synthetic.csv",
+            "obs_synthetic_3.csv",
             "percentile_90_x.csv",
             
         ]
@@ -165,7 +165,7 @@ class RAPIDKF:
         np.random.seed(312) 
         sensing_range = 20 #km
         sensing_range_degree = sensing_range/110 # 20km
-        n = 5
+        n = 6
         lat = np.random.uniform(28.5, 30.25, size=n)
         log = np.random.uniform(-99.5, -97.0, size=n)
         # lat = np.random.uniform(29, 29, size=n)
@@ -178,6 +178,7 @@ class RAPIDKF:
         drone_positions[2] = np.array([29.75, -98.0])
         drone_positions[3] = np.array([29.0, -97.5])
         drone_positions[4] = np.array([29.5, -97.5])
+        drone_positions[5] = np.array([29.25, -98.0])
         
         print(drone_positions)
         
@@ -196,7 +197,9 @@ class RAPIDKF:
         ordered_reach_coords = utility.river_geo_info()
         for timestep in tqdm(range(self.days)):
             self.timestep += 1
+            Q0 = copy.deepcopy(self.Q0)
             for idx_day in range(iter_per_day):    
+                self.Q0 = copy.deepcopy(Q0)
                 discharge_avg = np.zeros_like(self.u[0])
                 self.x = np.zeros_like(self.u[0])
                 drone_pos.append(drone_positions)
@@ -372,7 +375,7 @@ class RAPIDKF:
         self.drone_fleet_pos_initial(drone_positions, sensing_range)
     
     def sigmoid_prob(self, values, percentiles):
-        delta = values - percentiles
+        delta = np.maximum(0, values - percentiles)
         # Calculate probabilities using the sigmoid function
         # probabilities = 1 / (1 + np.exp(-(values - percentiles)))
         # probabilities = 1 / (1 + np.exp(-(values/ (percentiles+values + 1e-3))))
