@@ -41,7 +41,7 @@ class RAPIDKF:
         """
         np.random.seed(42)
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.sub_dir_path = "model_saved_3hour_flood2"
+        self.sub_dir_path = "model_saved_3hour_flood3"
         # Create directory if it doesn't exist
         if not os.path.exists(os.path.join(dir_path, self.sub_dir_path)):
             os.makedirs(os.path.join(dir_path, self.sub_dir_path), exist_ok=True)
@@ -109,6 +109,7 @@ class RAPIDKF:
         
         state_estimation = []
         discharge_estimation = []
+        input_estimation = []
         open_loop_x = []
         flood_est = []
         obs_synthetic = []
@@ -165,7 +166,7 @@ class RAPIDKF:
         np.random.seed(312) 
         sensing_range = 20 #km
         sensing_range_degree = sensing_range/110 # 20km
-        n = 6
+        n = 5
         lat = np.random.uniform(28.5, 30.25, size=n)
         log = np.random.uniform(-99.5, -97.0, size=n)
         # lat = np.random.uniform(29, 29, size=n)
@@ -178,7 +179,7 @@ class RAPIDKF:
         drone_positions[2] = np.array([29.75, -98.0])
         drone_positions[3] = np.array([29.0, -97.5])
         drone_positions[4] = np.array([29.5, -97.5])
-        drone_positions[5] = np.array([29.25, -98.0])
+        # drone_positions[5] = np.array([29.25, -98.0])
         
         print(drone_positions)
         
@@ -220,9 +221,10 @@ class RAPIDKF:
                 Qout[timestep, :] = discharge_avg[:]
                 state_estimation.append(copy.deepcopy(self.get_state()))
                 discharge_estimation.append(discharge_avg)
+                input_estimation.append(copy.deepcopy(self.u_flood))
                 flood_est.append(self.S.T @ self.u_flood)
                 
-                prob_u_flood_obs = self.sigmoid_prob(self.u_flood, self.S @ percentile_90)
+                prob_u_flood_obs = self.sigmoid_prob(self.u_flood, self.S @ percentile_90, ema = True, last_val = input_estimation[-1])
                 prob_x_flood_obs = self.sigmoid_prob(discharge_avg, percentile_90_x)
                 prob_target_area, coverage_area_drones, prob_flood_est = self.flood_prob_update(prob_u_flood_obs, self.S)
                 prob_u_flood_map.append(prob_flood_est)
@@ -281,7 +283,7 @@ class RAPIDKF:
         base_x, base_y = x[-1], y[-1]
         default_prob_map = np.sqrt((np.array(x) - base_x) ** 2 + (np.array(y) - base_y) ** 2)/1000
         default_prob_map /= default_prob_map[0]
-        self.default_prob_map = (1 - default_prob_map + 1e-5) * 0.2
+        self.default_prob_map = (1 - default_prob_map + 1e-5) * 0.05
             
         for idx, (lat,log) in enumerate(drone_positions):
             base_x, base_y = transformer.transform(*(log, lat))
@@ -374,7 +376,16 @@ class RAPIDKF:
         # lat += 0.1
         self.drone_fleet_pos_initial(drone_positions, sensing_range)
     
-    def sigmoid_prob(self, values, percentiles):
+    def sigmoid_prob(self, values, percentiles, ema: bool = False, last_val = None) -> np.ndarray:
+        # do the ema smoothing:
+        if ema:
+            dt   = 1        # sampling period  
+            tau  = 3.0         # desired time‑constant 
+            alpha = np.exp(-dt / tau)
+            if last_val is not None:
+                values = alpha * last_val + (1 - alpha) * values
+
+
         delta = np.maximum(0, values - percentiles)
         # Calculate probabilities using the sigmoid function
         # probabilities = 1 / (1 + np.exp(-(values - percentiles)))

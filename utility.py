@@ -133,7 +133,7 @@ def compute_centroids(latitudes, longitudes, reach_ids, assignment, flood_prob_m
         centroids.append(centroid)
     return centroids
 
-def move_towards(start, goal, step_size=10000):  # step in meters
+def move_towards(start, goal, step_size=5000):  # step in meters
     if goal is None:
         return start
     start_tuple, goal_tuple = tuple(start), tuple(goal)

@@ -164,10 +164,15 @@ class RAPIDKF:
         Args:
             sim_mode (int): Mode for simulation (0 = open loop, 1 = Kalman Filter estimation).
         """
+        if isinstance(flood_type, str):
+            flood_types = [flood_type]
+        else:
+            flood_types = list(flood_type)
+
         if sim_mode == 0:
             print(f"Simulation started with mode: open loop")
         elif sim_mode == 1: 
-            print(f"Simulation started with mode: Klaman Filter estimation")
+            print(f"Simulation started with mode: Kalman Filter estimation")
             
         ### Update P scale:
         # self.P = self.P * 24 * 3600    

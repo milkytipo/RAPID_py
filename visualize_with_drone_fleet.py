@@ -8,14 +8,15 @@ from matplotlib.patches import Circle
 import os
 
 # Set the base path for the model
-model_path = "./model_saved_3hour_flood2"
+model_path = "./model_saved_3hour_flood3"
 file_name = "discharge_only_flood"
 file_name = "drone1_flood_est"
 file_name = "drone1_discharge_est"
 # file_name = "flood_est_ground_truth"
-# file_name = "prob_target_map"
+file_name = "prob_target_map"
 # file_name = "prob_x_flood_map"
 # file_name = "coverage_area_map"
+file_name = "flood_est_ground_truth"
 # file_name = "discharge_est"
 file_name_pos = "drone1_pos"
 # Load the shapefile
@@ -105,7 +106,7 @@ def update(i):
 # Create animation
 ani = FuncAnimation(fig, update, frames=days, repeat=False)
 
-plt.show()
+# plt.show()
 
 # Create gif directory if it doesn't exist
 gif_path = f"{model_path}/gif"
@@ -113,4 +114,4 @@ if not os.path.exists(gif_path):
     os.makedirs(gif_path, exist_ok=True)
 
 # Save the animation
-ani.save(f"{gif_path}/{file_name}-100.gif", writer='pillow', fps=3)
+ani.save(f"{gif_path}/{file_name}.gif", writer='pillow', fps=3)
