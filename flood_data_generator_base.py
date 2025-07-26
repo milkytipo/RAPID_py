@@ -42,7 +42,7 @@ class RAPIDKF:
         if sub_dir_path is not None:
             self.sub_dir_path  = sub_dir_path
         else:
-            self.sub_dir_path = "model_saved_3hour_flood2"
+            self.sub_dir_path = "model_saved_3hour_flood3"
         # Create directory if it doesn't exist
         if not os.path.exists(os.path.join(dir_path, self.sub_dir_path)):
             os.makedirs(os.path.join(dir_path, self.sub_dir_path), exist_ok=True)
@@ -157,7 +157,7 @@ class RAPIDKF:
         with open(os.path.join(dir_path, dis_name), 'wb') as f:
             pickle.dump(saved_dict, f)
 
-    def simulate_flood(self, sim_mode: int = 1, flood_type: str = "fixed") -> None:
+    def simulate_flood(self, sim_mode: int = 1, flood_type: str = "gaussian") -> None:
         """
         Simulates the Kalman Filter model.
 
@@ -195,6 +195,11 @@ class RAPIDKF:
         obs_synthetic_3 = []
         obs_synthetic_only_flood_3 = []
         obs_synthetic_kf1_3 = []
+
+        gt_discharge = []  
+
+        gt_x_1 = [] # extra flood
+        gt_x_2 = [] # estimation from original observation
         
         self.H = np.dot(self.S, self.Ae_day)
         self.Q0 = np.zeros_like(self.u[0])
@@ -272,6 +277,8 @@ class RAPIDKF:
                     
                     self.x += added_flood[index] / evolution_steps
 
+                gt_x_1.append(copy.deepcopy(self.x))
+
                 obs_synthetic_only_flood_3.append(self.Ae_day @ self.x + np.dot(self.A0_day, self.Q0)) 
                 
                 for i in range(evolution_steps):
@@ -304,6 +311,8 @@ class RAPIDKF:
                 self.update(self.obs_data[timestep], timestep)
                 
                 obs_synthetic_kf1_3.append((self.Ae_day @ self.x + np.dot(self.A0_day, self.Q0)) ) 
+
+                gt_x_2.append(copy.deepcopy(self.x))
 
                 for i in range(evolution_steps):
                     discharge_obs_kf1[timestep] += self.update_discharge()/evolution_steps
@@ -340,6 +349,24 @@ class RAPIDKF:
                 
             np.savetxt(os.path.join(dir_path, "discharge_open_loop_simflood_with_origin_inflow.csv"), open_loop_x, delimiter=",")
         
+            '''
+            Generate grountruth discharges
+            '''
+            self.timestep = 0
+            self.Q0 = np.zeros_like(self.u[0])
+
+            for timestep in tqdm(range(self.days)):
+                discharge_avg = np.zeros_like(self.u[0])
+                self.x = gt_x_1[timestep] + gt_x_2[timestep]
+
+                gt_discharge.append((self.Ae_day @ self.x + np.dot(self.A0_day, self.Q0)) )
+
+                for i in range(evolution_steps):
+                    discharge_avg += self.update_discharge()/evolution_steps
+
+            np.savetxt(os.path.join(dir_path, "gt_discharge.csv"), gt_discharge, delimiter=",")
+
+
         '''
         Simulation under synthetic data
         '''
@@ -358,6 +385,7 @@ class RAPIDKF:
         np.savetxt(os.path.join(dir_path, "obs_synthetic_2.csv"), obs_synthetic_2, delimiter=",")
         np.savetxt(os.path.join(dir_path, "obs_synthetic_3.csv"), obs_synthetic_3, delimiter=",")
 
+        # Using obs_synthetic_3 for the Kalman Filter estimation
         for timestep in tqdm(range(self.days)):
             discharge_avg = np.zeros_like(self.u[0])
             self.x = np.zeros_like(self.u[0])
@@ -390,7 +418,8 @@ class RAPIDKF:
         np.savetxt(os.path.join(dir_path, "river_lateral_est_ground_truth_flood.csv"), state_estimation, delimiter=",")
         np.savetxt(os.path.join(dir_path, "flood_est_ground_truth.csv"), flood_est, delimiter=",")
         g.close()
-        
+
+
     def predict(self, u: Optional[np.ndarray] = None) -> None:
         """
         Predicts the next state of the system.

@@ -4,13 +4,15 @@
 # 2. lateral-inflow estimation
 # 3. external-water estimation
 # The data folder is ./model_saved_3hour_flood3
-# For 1. discharge flood estimation, ground truth is discharge_est.csv, compared with drone1_discharge_est.csv
+# For 1. discharge flood estimation, ground truth is obs_synthetic_3.csv, compared with drone1_discharge_est.csv and discharge_est.csv
 # For 2. lateral-inflow flood estimation, ground truth is river_lateral_est_ground_truth_flood.csv, compared with drone1_river_lateral_est.csv
 # For 3. external-water flood estimation, ground truth is flood_est_ground_truth.csv, compared with drone1_flood_est.csv
 
 # please plot the RMSE of each estimation type. x is the timestep, y is the RMSE
 # The RMSE is calculated as the square root of the mean of the squared differences between the estimated and ground truth values.
 # The RMSE is calculated for each timestep, and the plot should show the RMSE over time.        
+
+    
 # Set the base path for the model
 import pandas as pd
 import matplotlib.pyplot as plt 
@@ -19,27 +21,67 @@ file_name_drone = "drone1_discharge_est"
 # file_name_drone = "drone1_river_lateral_est"
 # file_name_drone = "drone1_flood_est"
 
-file_name_gt = "discharge_est"
+file_name_gt = f"/home/zidawu/RAPID_py/model_saved_3hour_flood3/gt_discharge"
 # file_name_gt = "river_lateral_est_ground_truth_flood"
 # file_name_gt = "flood_est_ground_truth"
 
-# Load the estimation of flood data without treating the first row as the header
+file_name_ckf = "discharge_est"
+
+
 flood_data_path = f"{model_path}/{file_name_drone}.csv"
 flood_data = pd.read_csv(flood_data_path, header=None)
 # Load the ground truth flood data without treating the first row as the header
-ground_truth_flood_data_path = f"{model_path}/{file_name_gt}.csv"
+# ground_truth_flood_data_path = f"{model_path}/{file_name_gt}.csv"
+ground_truth_flood_data_path = f"{file_name_gt}.csv"
 ground_truth_flood_data = pd.read_csv(ground_truth_flood_data_path, header=None)
+
+# Load the CKF flood estimation data without treating the first row as the header
+ckf_flood_data_path = f"{model_path}/{file_name_ckf}.csv"
+ckf_flood_data = pd.read_csv(ckf_flood_data_path, header=None)
+# Ensure the CKF flood data columns match the ground truth data
+ckf_flood_data.columns = ground_truth_flood_data.columns
+# Calculate RMSE for each timestep for CKF
+rmse_ckf_values = ((ckf_flood_data - ground_truth_flood_data) ** 2).mean(axis=1).apply(lambda x: x ** 0.5)
 # Ensure the flood data columns match the ground truth data
 flood_data.columns = ground_truth_flood_data.columns
 # Calculate RMSE for each timestep
 rmse_values = ((flood_data - ground_truth_flood_data) ** 2).mean(axis=1).apply(lambda x: x ** 0.5)
-# Plot the RMSE values
+# Plot the RMSE values for CKF and the flood estimation
 plt.figure(figsize=(10, 6))
-plt.plot(rmse_values, marker='o', linestyle='-', color='b')
+plt.plot(rmse_values, marker='o', linestyle='-', color='b', label='Flood Estimation')
+plt.plot(rmse_ckf_values, marker='x', linestyle='--', color='r', label='CKF Estimation')
 plt.title('RMSE of Flood Estimation Over Time')
 plt.xlabel('Timestep')
 plt.ylabel('RMSE')
 plt.grid()
 plt.xticks(range(len(rmse_values)), rotation=45)
+plt.legend()
 plt.tight_layout()
 plt.savefig(f"{model_path}/fig_eval/rmse_flood_estimation.png")
+
+# also calculate the MAE (Mean Absolute Error) for each estimation type
+mae_values = (flood_data - ground_truth_flood_data).abs().mean(axis=1)
+mae_ckf_values = (ckf_flood_data - ground_truth_flood_data).abs().mean(axis=1)
+# Plot the MAE values for CKF and the flood estimation
+plt.figure(figsize=(10, 6))
+plt.plot(mae_values, marker='o', linestyle='-', color='b', label='Flood Estimation MAE')
+plt.plot(mae_ckf_values, marker='x', linestyle='--', color='r', label='CKF Estimation MAE')
+plt.title('MAE of Flood Estimation Over Time')
+plt.xlabel('Timestep')
+plt.ylabel('MAE')
+plt.grid()
+plt.xticks(range(len(mae_values)), rotation=45)
+plt.legend()
+plt.tight_layout()
+plt.savefig(f"{model_path}/fig_eval/mae_flood_estimation.png")
+
+
+# plt.figure(figsize=(10, 6))
+# plt.plot(rmse_values, marker='o', linestyle='-', color='b')
+# plt.title('RMSE of Flood Estimation Over Time')
+# plt.xlabel('Timestep')
+# plt.ylabel('RMSE')
+# plt.grid()
+# plt.xticks(range(len(rmse_values)), rotation=45)
+# plt.tight_layout()
+# plt.savefig(f"{model_path}/fig_eval/rmse_flood_estimation.png")

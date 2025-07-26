@@ -135,7 +135,6 @@ class RAPIDKF:
             "percentile_90.csv",
             "obs_synthetic_3.csv",
             "percentile_90_x.csv",
-            
         ]
         
         file_paths = [os.path.join(dir_path, file) for file in file_names]
@@ -405,6 +404,7 @@ class RAPIDKF:
         
         # prob_map used for drones
         interested_prob_map =  prob_flood_obs1  + prob_flood_obs2 + self.default_prob_map
+        interested_prob_map =  prob_flood_obs1  + prob_flood_obs2 
         # interested_prob_map =  self.default_prob_map
         coverage_area_drones = S @ (prob_u_flood_obs * 0 + 1)
         flood_prob_map =  prob_flood_obs1  + prob_flood_obs2
