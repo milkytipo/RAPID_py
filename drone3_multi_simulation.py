@@ -41,7 +41,7 @@ class RAPIDKF:
         """
         np.random.seed(42)
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.sub_dir_path = "model_saved_3hour_flood3"
+        self.sub_dir_path = "model_saved_3hour_flood2"
         # Create directory if it doesn't exist
         if not os.path.exists(os.path.join(dir_path, self.sub_dir_path)):
             os.makedirs(os.path.join(dir_path, self.sub_dir_path), exist_ok=True)
@@ -124,6 +124,8 @@ class RAPIDKF:
         # Define file paths
         dir_path = os.path.dirname(os.path.realpath(__file__))
         dir_path = os.path.join(dir_path, self.sub_dir_path)
+
+        default_map_bool = False
 
         file_names = [
             "injected_flood.csv",
@@ -225,7 +227,7 @@ class RAPIDKF:
                 
                 prob_u_flood_obs = self.sigmoid_prob(self.u_flood, self.S @ percentile_90, ema = True, last_val = input_estimation[-1])
                 prob_x_flood_obs = self.sigmoid_prob(discharge_avg, percentile_90_x)
-                prob_target_area, coverage_area_drones, prob_flood_est = self.flood_prob_update(prob_u_flood_obs, self.S)
+                prob_target_area, coverage_area_drones, prob_flood_est = self.flood_prob_update(prob_u_flood_obs, self.S, default_map_indicator=default_map_bool)
                 prob_u_flood_map.append(prob_flood_est)
                 prob_target_map.append(prob_target_area)
                 coverage_area_map.append(coverage_area_drones)
@@ -254,16 +256,19 @@ class RAPIDKF:
 
         # Save results to the created directory
         Qout_df = pd.DataFrame(Qout[:])
-        Qout_df.to_csv(os.path.join(dir_path, "drone1_Qout.csv"), index=False)
-        np.savetxt(os.path.join(dir_path, "drone1_discharge_est.csv"), discharge_estimation, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "drone1_river_lateral_est.csv"), state_estimation, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "drone1_flood_est.csv"), flood_est, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "prob_u_flood_map.csv"), prob_u_flood_map, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "prob_target_map.csv"), prob_target_map, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "coverage_area_map.csv"), coverage_area_map, delimiter=",")
-        np.savetxt(os.path.join(dir_path, "prob_x_flood_map.csv"), prob_x_flood_map, delimiter=",")
+        Qout_df.to_csv(os.path.join(dir_path, "drones_Qout.csv"), index=False)
+
+        file_suffix = f"_default_map" if default_map_bool else "_no_default_map"
+        
+        np.savetxt(os.path.join(dir_path, f"drones_discharge_est{file_suffix}.csv"), discharge_estimation, delimiter=",")
+        np.savetxt(os.path.join(dir_path, f"drones_river_lateral_est{file_suffix}.csv"), state_estimation, delimiter=",")
+        np.savetxt(os.path.join(dir_path, f"drones_flood_est{file_suffix}.csv"), flood_est, delimiter=",")
+        np.savetxt(os.path.join(dir_path, f"prob_u_flood_map{file_suffix}.csv"), prob_u_flood_map, delimiter=",")
+        np.savetxt(os.path.join(dir_path, f"prob_target_map{file_suffix}.csv"), prob_target_map, delimiter=",")
+        np.savetxt(os.path.join(dir_path, f"coverage_area_map{file_suffix}.csv"), coverage_area_map, delimiter=",")
+        np.savetxt(os.path.join(dir_path, f"prob_x_flood_map{file_suffix}.csv"), prob_x_flood_map, delimiter=",")
         drone_pos_flat = np.array([frame.flatten() for frame in drone_pos]) 
-        np.savetxt(os.path.join(dir_path, "drone1_pos.csv"), drone_pos_flat, delimiter=",")
+        np.savetxt(os.path.join(dir_path, f"drones_pos{file_suffix}.csv"), drone_pos_flat, delimiter=",")
         g.close()
     
     def drone_fleet_pos_initial(self, drone_positions, sensing_range):
@@ -393,7 +398,7 @@ class RAPIDKF:
         
         return probabilities
     
-    def flood_prob_update(self, prob_u_flood_obs, S):
+    def flood_prob_update(self, prob_u_flood_obs, S, default_map_indicator: bool = False) -> np.ndarray:
         # S maps observed id to the real river network
         S = S.T
         # only calculate the probability at the boundary to upper stream section
@@ -403,9 +408,11 @@ class RAPIDKF:
         prob_flood_obs2 = S @ prob_u_flood_obs
         
         # prob_map used for drones
-        interested_prob_map =  prob_flood_obs1  + prob_flood_obs2 + self.default_prob_map
-        interested_prob_map =  prob_flood_obs1  + prob_flood_obs2 
-        # interested_prob_map =  self.default_prob_map
+        if default_map_indicator:
+            interested_prob_map =  prob_flood_obs1  + prob_flood_obs2 + self.default_prob_map
+        else:
+            interested_prob_map =  prob_flood_obs1  + prob_flood_obs2 
+
         coverage_area_drones = S @ (prob_u_flood_obs * 0 + 1)
         flood_prob_map =  prob_flood_obs1  + prob_flood_obs2
         

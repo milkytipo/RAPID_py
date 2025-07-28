@@ -4,9 +4,9 @@
 # 2. lateral-inflow estimation
 # 3. external-water estimation
 # The data folder is ./model_saved_3hour_flood3
-# For 1. discharge flood estimation, ground truth is obs_synthetic_3.csv, compared with drone1_discharge_est.csv and discharge_est.csv
-# For 2. lateral-inflow flood estimation, ground truth is river_lateral_est_ground_truth_flood.csv, compared with drone1_river_lateral_est.csv
-# For 3. external-water flood estimation, ground truth is flood_est_ground_truth.csv, compared with drone1_flood_est.csv
+# For 1. discharge flood estimation, ground truth is obs_synthetic_3.csv, compared with drones_discharge_est.csv and discharge_est.csv
+# For 2. lateral-inflow flood estimation, ground truth is river_lateral_est_ground_truth_flood.csv, compared with drones_river_lateral_est.csv
+# For 3. external-water flood estimation, ground truth is flood_est_ground_truth.csv, compared with drones_flood_est.csv
 
 # please plot the RMSE of each estimation type. x is the timestep, y is the RMSE
 # The RMSE is calculated as the square root of the mean of the squared differences between the estimated and ground truth values.
@@ -16,23 +16,22 @@
 # Set the base path for the model
 import pandas as pd
 import matplotlib.pyplot as plt 
-model_path = "./model_saved_3hour_flood3"
-file_name_drone = "drone1_discharge_est"
-# file_name_drone = "drone1_river_lateral_est"
-# file_name_drone = "drone1_flood_est"
+model_path = "./model_saved_3hour_flood4"
+file_name_drone = "drones_discharge_est_default_map"
+# file_name_drone = "drones_discharge_est_no_default_map"
 
-file_name_gt = f"/home/zidawu/RAPID_py/model_saved_3hour_flood3/gt_discharge"
-# file_name_gt = "river_lateral_est_ground_truth_flood"
-# file_name_gt = "flood_est_ground_truth"
+file_name_gt = "gt_discharge"
 
-file_name_ckf = "discharge_est"
+file_name_ckf = "discharge_ckf_est_input_est_obs_3"
+# file_name_ckf = "discharge_ckf_est_input_est_obs_3"
+# file_name_ckf = "discharge_ckf_no_est_input_est_obs_1"
+# file_name_drone = "discharge_ckf_no_est_input_est_obs_3"
 
 
 flood_data_path = f"{model_path}/{file_name_drone}.csv"
 flood_data = pd.read_csv(flood_data_path, header=None)
 # Load the ground truth flood data without treating the first row as the header
-# ground_truth_flood_data_path = f"{model_path}/{file_name_gt}.csv"
-ground_truth_flood_data_path = f"{file_name_gt}.csv"
+ground_truth_flood_data_path = f"{model_path}/{file_name_gt}.csv"
 ground_truth_flood_data = pd.read_csv(ground_truth_flood_data_path, header=None)
 
 # Load the CKF flood estimation data without treating the first row as the header

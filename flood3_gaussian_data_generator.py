@@ -18,6 +18,7 @@ from utility import find_rank_and_rightmost_columns
 
 
 def inject_flood_gaussian(cur_day, peak_day, flood_vector, rainfall_dict, reach_id_to_index):
+    flood_vector_new = np.zeros_like(flood_vector)
     # Apply Gaussian rainfall directly to reaches in rainfall_dict
     sigma = 2
     for reach_id, rain_value in rainfall_dict.items():
@@ -25,9 +26,9 @@ def inject_flood_gaussian(cur_day, peak_day, flood_vector, rainfall_dict, reach_
             reach_index = reach_id_to_index.get(reach_id)  # Convert Reach ID to sorted index
             if reach_index is not None:  # Ensure the reach exists
                 rain = rain_value * np.exp(-((cur_day - peak_day) ** 2) / (2 * sigma ** 2)) 
-                flood_vector[reach_index] = rain  
+                flood_vector_new[reach_index] = rain  
 
-    return flood_vector
+    return flood_vector_new
 
 
 def generate_gaussian_rainfall(peak_reach_id = 0, max_rainfall = 5):
@@ -86,8 +87,8 @@ def generate_gaussian_rainfall(peak_reach_id = 0, max_rainfall = 5):
     # num_reaches = self.u[0].shape[0] 
     # r_peak = num_reaches // 4  
     # # Gaussian-distributed rainfall 
-    # flood_vector = 5 * np.exp(-((np.arange(num_reaches) - r_peak) ** 2) / (2 * sigma ** 2))
-    # return flood_vector  
+    # flood_vector_new = 5 * np.exp(-((np.arange(num_reaches) - r_peak) ** 2) / (2 * sigma ** 2))
+    # return flood_vector_new  
 
 
 if __name__ == '__main__':

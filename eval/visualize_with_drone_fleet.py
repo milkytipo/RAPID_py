@@ -9,14 +9,13 @@ from matplotlib.patches import Circle
 # --- Configuration ---
 
 # Set the base path for the model and drone data
-model_path = "./model_saved_3hour_flood3"
-drone_pos_file = "drone1_pos"
+model_path = "./model_saved_3hour_flood2"
 
 # List of all discharge/estimation files to be plotted
 # file_names = [
 #     "discharge_only_flood",
-#     "drone1_flood_est",
-#     "drone1_discharge_est",
+#     "drones_flood_est",
+#     "drones_discharge_est",
 #     "flood_est_ground_truth",
 #     "prob_target_map",
 #     "prob_x_flood_map",
@@ -24,12 +23,24 @@ drone_pos_file = "drone1_pos"
 #     "grountruth_discharge",
 #     "discharge_est"
 # ]
+
+# drone_pos_file = "drones_pos_default_map"
+# file_names = [
+#     "drones_discharge_est_default_map",
+#     "prob_target_map_default_map",
+#     "coverage_area_map_default_map",
+#     "gt_discharge",
+#     "discharge_ckf_est_input_est_obs_3"
+# ]
+
+
+drone_pos_file = "drones_pos_no_default_map"
 file_names = [
-    "drone1_discharge_est",
-    "prob_target_map",
-    "coverage_area_map",
+    "drones_discharge_est_no_default_map",
+    "prob_target_map_no_default_map",
+    "coverage_area_map_no_default_map",
     "gt_discharge",
-    "discharge_est"
+    "discharge_ckf_est_input_est_obs_3"
 ]
 
 # Path to the shapefile and reach ID data

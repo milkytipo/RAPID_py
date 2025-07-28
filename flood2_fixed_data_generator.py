@@ -23,9 +23,10 @@ def inject_flood_fixed(flood_vector):
     Returns:
         np.ndarray: vector of added flood discharge of each reach
     """
-    flood_vector[0] = 20
+    flood_vector_new = np.zeros_like(flood_vector)
+    flood_vector_new[0] = 20
 
-    return flood_vector
+    return flood_vector_new
 
 
 if __name__ == '__main__':
