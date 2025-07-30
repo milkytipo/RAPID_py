@@ -42,7 +42,7 @@ class RAPIDKF:
         if sub_dir_path is not None:
             self.sub_dir_path  = sub_dir_path
         else:
-            self.sub_dir_path = "model_saved_3hour_flood4"
+            self.sub_dir_path = "model_saved_3hour_flood3"
         # Create directory if it doesn't exist
         if not os.path.exists(os.path.join(dir_path, self.sub_dir_path)):
             os.makedirs(os.path.join(dir_path, self.sub_dir_path), exist_ok=True)
@@ -157,7 +157,7 @@ class RAPIDKF:
         with open(os.path.join(dir_path, dis_name), 'wb') as f:
             pickle.dump(saved_dict, f)
 
-    def simulate_flood(self, sim_mode: int = 1, flood_type: list = ["fixed","gaussian"]) -> None: 
+    def simulate_flood(self, sim_mode: int = 1, flood_type: list = ["gaussian"]) -> None: 
         """
         Simulates the Kalman Filter model.
 
@@ -236,14 +236,14 @@ class RAPIDKF:
             discharge_obs_kf1 = np.loadtxt(file_paths[3], delimiter=",")
             open_loop_x = np.loadtxt(file_paths[4], delimiter=",")
             discharge_only_flood = np.loadtxt(file_paths[5], delimiter=",")
-            percentile_90 = np.loadtxt(file_paths[6], delimiter=",")
-            percentile_90_x = np.loadtxt(file_paths[7], delimiter=",")
+            self.percentile_90 = np.loadtxt(file_paths[6], delimiter=",")
+            self.percentile_90_x = np.loadtxt(file_paths[7], delimiter=",")
         
         else:
             print("Some files are missing. Proceeding with the full simulation...")     
             # Find the 90th percentile along each column (axis=0 for each reach)
-            percentile_90 = np.percentile(self.u, 90, axis=0)  
-            np.savetxt(os.path.join(dir_path, "percentile_90.csv"), percentile_90, delimiter=",")
+            self.percentile_90 = np.percentile(self.u, 90, axis=0)  
+            np.savetxt(os.path.join(dir_path, "percentile_90.csv"), self.percentile_90, delimiter=",")
             
             '''
             Open-loop simulation only added flood(predict inflow every 3 hours)
@@ -324,8 +324,8 @@ class RAPIDKF:
 
                 
             np.savetxt(os.path.join(dir_path, "discharge_est_from_origin_gauge.csv"), discharge_obs_kf1, delimiter=",")
-            percentile_90_x = np.percentile(discharge_obs_kf1, 90, axis=0)  
-            np.savetxt(os.path.join(dir_path, "percentile_90_x.csv"), percentile_90_x, delimiter=",")
+            self.percentile_90_x = np.percentile(discharge_obs_kf1, 90, axis=0)  
+            np.savetxt(os.path.join(dir_path, "percentile_90_x.csv"), self.percentile_90_x, delimiter=",")
             
             '''
             Open-loop simulation with added flood 
@@ -461,6 +461,7 @@ class RAPIDKF:
         
         if input_type:
             self.u_flood, self.u_flood_var = self.input_estimation(z)
+            # self.u_flood = np.maximum(0, self.u_flood - self.S @ self.percentile_90)
             self.u_flood[self.u_flood < 0] = 0 
             self.x = self.x + np.dot(self.B,self.u_flood)
             innovation=  z - np.dot(self.H, self.x)
@@ -570,7 +571,7 @@ class RAPIDKF:
 
             state_estimation.append(copy.deepcopy(self.get_state()))
             discharge_estimation.append(discharge_avg)
-            flood_est.append(self.S.T @ self.u_flood)
+            flood_est.append(self.S.T @ self.u_flood) if input_indicator else flood_est.append(np.zeros_like(self.u_flood))
 
         # Save results to the created directory
         if input_indicator:

@@ -17,7 +17,7 @@ from tqdm import tqdm
 from utility import find_rank_and_rightmost_columns
 from pyproj import Transformer
 import  collections 
-from utility import geodesic_distance, partition_nodes, compute_centroids, move_towards, generate_unique_transform_matrices
+from utility import geodesic_distance, partition_nodes, compute_centroids, move_towards, generate_unique_transform_matrices, calculate_coverage_cost
 
 class RAPIDKF:
     """
@@ -115,8 +115,8 @@ class RAPIDKF:
         obs_synthetic = []
         
         self.Q0 = np.zeros_like(self.u[0])
-        evolution_steps = 8  # Number of steps for each day
-        added_flood = np.zeros((self.days*evolution_steps,self.u[0].shape[0]))
+        self.evolution_steps = 8  # Number of steps for each day
+        added_flood = np.zeros((self.days*self.evolution_steps,self.u[0].shape[0]))
         origin_inflow = np.zeros_like(added_flood)
         inject_flood_inflow = np.zeros_like(added_flood)
         discharge_only_flood = np.zeros((self.days,self.u[0].shape[0]))  
@@ -124,8 +124,6 @@ class RAPIDKF:
         # Define file paths
         dir_path = os.path.dirname(os.path.realpath(__file__))
         dir_path = os.path.join(dir_path, self.sub_dir_path)
-
-        default_map_bool = False
 
         file_names = [
             "injected_flood.csv",
@@ -151,9 +149,9 @@ class RAPIDKF:
             discharge_obs_kf1 = np.loadtxt(file_paths[3], delimiter=",")
             open_loop_x = np.loadtxt(file_paths[4], delimiter=",")
             discharge_only_flood = np.loadtxt(file_paths[5], delimiter=",")
-            percentile_90 = np.loadtxt(file_paths[6], delimiter=",")
+            self.percentile_90_u = np.loadtxt(file_paths[6], delimiter=",")
             obs_synthetic = np.loadtxt(file_paths[7], delimiter=",")
-            percentile_90_x = np.loadtxt(file_paths[8], delimiter=",")
+            self.percentile_90_x = np.loadtxt(file_paths[8], delimiter=",")
             
         else:
             print('Data is needed')
@@ -183,7 +181,213 @@ class RAPIDKF:
         # drone_positions[5] = np.array([29.25, -98.0])
         
         print(drone_positions)
+
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=True, 
+                x_map_bool=False,
+                input_indicator=True, 
+                name_suffix="obs_3"
+        )
+
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=True, 
+                x_map_bool=False,
+                input_indicator=False, 
+                name_suffix="obs_3"
+        )
+
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=False, 
+                x_map_bool=False,
+                input_indicator=True, 
+                name_suffix="obs_3"
+        )
+
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=False, 
+                x_map_bool=False,
+                input_indicator=False, 
+                name_suffix="obs_3"
+        )
+
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=True, 
+                x_map_bool=True,
+                input_indicator=True, 
+                name_suffix="obs_3"
+        )
+
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=True, 
+                x_map_bool=True,
+                input_indicator=False, 
+                name_suffix="obs_3"
+        )
+
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=False, 
+                x_map_bool=True,
+                input_indicator=True, 
+                name_suffix="obs_3"
+        )
+
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=False, 
+                x_map_bool=True,
+                input_indicator=False, 
+                name_suffix="obs_3"
+        )
+
+        # self.drone_fleet_pos_initial(drone_positions, sensing_range)
+        # # self.H = np.dot(self.S, self.Ae_day)
+        # self.B = self.S.T
+        # self.timestep = 0
+        # self.Q0 = np.zeros_like(self.u[0])
+        # drone_pos = []
+        # prob_u_flood_map = []
+        # coverage_area_map = []
+        # prob_target_map = []
+        # prob_x_flood_map = []
+        # prob_flood_est = np.zeros_like(self.u[0])
+        # coverage_cost = []
+        # iter_per_day = 4
+        # ordered_reach_coords = utility.river_geo_info()
+        # for timestep in tqdm(range(self.days)):
+        #     self.timestep += 1
+        #     Q0 = copy.deepcopy(self.Q0)
+        #     for idx_day in range(iter_per_day):    
+        #         self.Q0 = copy.deepcopy(Q0)
+        #         discharge_avg = np.zeros_like(self.u[0])
+        #         self.x = np.zeros_like(self.u[0])
+        #         drone_pos.append(drone_positions)
+                
+        #         # Kalman Filter estimation (updates every 3 hours)
+        #         for i in range(self.evolution_steps):
+        #             self.x += self.u[timestep * self.evolution_steps + i]  / self.evolution_steps
+        #             # self.x += added_flood[timestep * self.evolution_steps + i] / self.evolution_steps
+                    
+        #         gt_obs = obs_synthetic[timestep]
+        #         gt_obs = self.S @ gt_obs
+        #         self.update(gt_obs, timestep, True)
+
+        #         for i in range(self.evolution_steps):
+        #             discharge_avg += self.update_discharge()
+
+        #         discharge_avg /= self.evolution_steps
+        #         Qout[timestep, :] = discharge_avg[:]
+        #         state_estimation.append(copy.deepcopy(self.get_state()))
+        #         discharge_estimation.append(discharge_avg)
+        #         input_estimation.append(copy.deepcopy(self.u_flood))
+        #         flood_est.append(self.S.T @ self.u_flood)
+                
+        #         prob_u_flood_obs = self.sigmoid_prob(self.u_flood, self.S @ self.percentile_90_u, ema = True, last_val = input_estimation[-1])
+        #         prob_x_flood_obs = self.sigmoid_prob(discharge_avg, self.percentile_90_x)
+        #         prob_target_area, coverage_area_drones, prob_flood_est = self.flood_prob_update(prob_u_flood_obs,prob_x_flood_obs,self.S, default_map_indicator=default_map_bool, x_map_indicator=False)
+        #         prob_u_flood_map.append(prob_flood_est)
+        #         prob_target_map.append(prob_target_area)
+        #         coverage_area_map.append(coverage_area_drones)
+        #         prob_x_flood_map.append(prob_x_flood_obs)
+                
+        #         # Dynamics of drone
+        #         assignment = partition_nodes(
+        #                 ordered_reach_coords["Start Latitude"],
+        #                 ordered_reach_coords["Start Longitude"],
+        #                 ordered_reach_coords["Reach ID"],
+        #                 drone_positions
+        #             )
+
+        #         cur_t_coverage_cost = calculate_coverage_cost(
+        #                 ordered_reach_coords["Start Latitude"],
+        #                 ordered_reach_coords["Start Longitude"],
+        #                 ordered_reach_coords["Reach ID"],
+        #                 drone_positions,
+        #                 assignment,
+        #                 prob_target_map[timestep*iter_per_day + idx_day],
+        #             )
+                
+        #         coverage_cost.append(cur_t_coverage_cost)
+
+        #         centroids = compute_centroids(
+        #                 ordered_reach_coords["Start Latitude"],
+        #                 ordered_reach_coords["Start Longitude"],
+        #                 ordered_reach_coords["Reach ID"],
+        #                 assignment,
+        #                 prob_target_map[timestep*iter_per_day + idx_day],
+        #                 drone_count=len(drone_positions)
+        #             )
+        #         drone_positions = np.array([
+        #             move_towards(drone_positions[i], centroids[i]) for i in range(len(drone_positions))
+        #         ])
+                
+        #         self.drone_pos_update(drone_positions, sensing_range)
+
+        # # Save results to the created directory
+        # Qout_df = pd.DataFrame(Qout[:])
+        # Qout_df.to_csv(os.path.join(dir_path, "drones_Qout.csv"), index=False)
+
+
+        # # Save results to the created directory
+        # if input_indicator:
+        #     file_suffix = f"_input_est_{name_suffix}" if name_suffix else "_input_est"
+        # else:
+        #     file_suffix = f"_no_input_est_{name_suffix}" if name_suffix else "_no_input_est"
         
+        # np.savetxt(os.path.join(dir_path, f"drones_discharge_est{file_suffix}.csv"), discharge_estimation, delimiter=",")
+        # np.savetxt(os.path.join(dir_path, f"drones_river_lateral_est{file_suffix}.csv"), state_estimation, delimiter=",")
+        # np.savetxt(os.path.join(dir_path, f"drones_flood_est{file_suffix}.csv"), flood_est, delimiter=",")
+        # np.savetxt(os.path.join(dir_path, f"prob_u_flood_map{file_suffix}.csv"), prob_u_flood_map, delimiter=",")
+        # np.savetxt(os.path.join(dir_path, f"prob_target_map{file_suffix}.csv"), prob_target_map, delimiter=",")
+        # np.savetxt(os.path.join(dir_path, f"coverage_area_map{file_suffix}.csv"), coverage_area_map, delimiter=",")
+        # np.savetxt(os.path.join(dir_path, f"prob_x_flood_map{file_suffix}.csv"), prob_x_flood_map, delimiter=",")
+        # drone_pos_flat = np.array([frame.flatten() for frame in drone_pos]) 
+        # np.savetxt(os.path.join(dir_path, f"drones_pos{file_suffix}.csv"), drone_pos_flat, delimiter=",")
+        # np.savetxt(os.path.join(dir_path, f"coverage_cost{file_suffix}.csv"), coverage_cost, delimiter=",")
+        # g.close()
+
+    def run_coverage_simulation(self, dir_path, obs, drone_positions, sensing_range, default_map_bool: bool = False, x_map_bool: bool = False, input_indicator: bool = True, name_suffix: str = "") -> None:
+        """
+        Runs the coverage simulation for the drone fleet.
+        Args:
+            obs (np.ndarray): Observations for the simulation.
+            drone_positions (np.ndarray): The initial positions of the drones.
+            sensing_range (float): The sensing range of the drones.
+            default_map_bool (bool): Whether to use the default map.
+            input_indicator (bool): Whether to use input estimation.
+            name_suffix (str): Suffix to add to the output files.
+        """
+        obs_synthetic = copy.deepcopy(obs)
         self.drone_fleet_pos_initial(drone_positions, sensing_range)
         # self.H = np.dot(self.S, self.Ae_day)
         self.B = self.S.T
@@ -195,6 +399,11 @@ class RAPIDKF:
         prob_target_map = []
         prob_x_flood_map = []
         prob_flood_est = np.zeros_like(self.u[0])
+        coverage_cost = []
+        state_estimation = []
+        discharge_estimation = []
+        input_estimation = []
+        flood_est = []
         iter_per_day = 4
         ordered_reach_coords = utility.river_geo_info()
         for timestep in tqdm(range(self.days)):
@@ -207,31 +416,39 @@ class RAPIDKF:
                 drone_pos.append(drone_positions)
                 
                 # Kalman Filter estimation (updates every 3 hours)
-                for i in range(evolution_steps):
-                    self.x += self.u[timestep * evolution_steps + i]  / evolution_steps
-                    # self.x += added_flood[timestep * evolution_steps + i] / evolution_steps
+                for i in range(self.evolution_steps):
+                    self.x += self.u[timestep * self.evolution_steps + i]  / self.evolution_steps
+                    # self.x += added_flood[timestep * self.evolution_steps + i] / self.evolution_steps
                     
                 gt_obs = obs_synthetic[timestep]
                 gt_obs = self.S @ gt_obs
-                self.update(gt_obs, timestep, True)
+                self.update(gt_obs, timestep, input_indicator)
 
-                for i in range(evolution_steps):
+                for i in range(self.evolution_steps):
                     discharge_avg += self.update_discharge()
 
-                discharge_avg /= evolution_steps
-                Qout[timestep, :] = discharge_avg[:]
+                discharge_avg /= self.evolution_steps
                 state_estimation.append(copy.deepcopy(self.get_state()))
                 discharge_estimation.append(discharge_avg)
+                if not input_indicator:
+                    self.u_flood = np.zeros(self.B.shape[-1])
                 input_estimation.append(copy.deepcopy(self.u_flood))
                 flood_est.append(self.S.T @ self.u_flood)
                 
-                prob_u_flood_obs = self.sigmoid_prob(self.u_flood, self.S @ percentile_90, ema = True, last_val = input_estimation[-1])
-                prob_x_flood_obs = self.sigmoid_prob(discharge_avg, percentile_90_x)
-                prob_target_area, coverage_area_drones, prob_flood_est = self.flood_prob_update(prob_u_flood_obs, self.S, default_map_indicator=default_map_bool)
-                prob_u_flood_map.append(prob_flood_est)
-                prob_target_map.append(prob_target_area)
+                prob_u_flood_obs = self.sigmoid_prob(self.u_flood, self.S @ self.percentile_90_u, ema = True, last_val = input_estimation[-1])
+                prob_x_flood_obs = self.sigmoid_prob(discharge_avg, self.percentile_90_x)
+                prob_target_area, coverage_area_drones, prob_flood_est = self.flood_prob_update(
+                                                            prob_u_flood_obs,
+                                                            prob_x_flood_obs,
+                                                            self.S, 
+                                                            default_map_indicator=default_map_bool, 
+                                                            x_map_indicator=x_map_bool,
+                                                            )
+
+                prob_u_flood_map.append(prob_flood_est) # abnormal input prob
+                prob_target_map.append(prob_target_area) # combinatorial prob
                 coverage_area_map.append(coverage_area_drones)
-                prob_x_flood_map.append(prob_x_flood_obs)
+                prob_x_flood_map.append(prob_x_flood_obs) # real flood prob
                 
                 # Dynamics of drone
                 assignment = partition_nodes(
@@ -240,6 +457,18 @@ class RAPIDKF:
                         ordered_reach_coords["Reach ID"],
                         drone_positions
                     )
+
+                cur_t_coverage_cost = calculate_coverage_cost(
+                        ordered_reach_coords["Start Latitude"],
+                        ordered_reach_coords["Start Longitude"],
+                        ordered_reach_coords["Reach ID"],
+                        drone_positions,
+                        assignment,
+                        prob_target_map[timestep*iter_per_day + idx_day],
+                    )
+                
+                coverage_cost.append(cur_t_coverage_cost)
+
                 centroids = compute_centroids(
                         ordered_reach_coords["Start Latitude"],
                         ordered_reach_coords["Start Longitude"],
@@ -255,10 +484,20 @@ class RAPIDKF:
                 self.drone_pos_update(drone_positions, sensing_range)
 
         # Save results to the created directory
-        Qout_df = pd.DataFrame(Qout[:])
-        Qout_df.to_csv(os.path.join(dir_path, "drones_Qout.csv"), index=False)
+        if default_map_bool:
+            name_suffix_map = "default_map"
+        else:
+            name_suffix_map = "no_default_map"
 
-        file_suffix = f"_default_map" if default_map_bool else "_no_default_map"
+        if x_map_bool:
+            name_suffix = f"x_map_{name_suffix_map}"
+        else:
+            name_suffix = f"no_x_map_{name_suffix_map}"
+
+        if input_indicator:
+            file_suffix = f"_input_est_{name_suffix}" if name_suffix else "_input_est"
+        else:
+            file_suffix = f"_no_input_est_{name_suffix}" if name_suffix else "_no_input_est"
         
         np.savetxt(os.path.join(dir_path, f"drones_discharge_est{file_suffix}.csv"), discharge_estimation, delimiter=",")
         np.savetxt(os.path.join(dir_path, f"drones_river_lateral_est{file_suffix}.csv"), state_estimation, delimiter=",")
@@ -269,7 +508,7 @@ class RAPIDKF:
         np.savetxt(os.path.join(dir_path, f"prob_x_flood_map{file_suffix}.csv"), prob_x_flood_map, delimiter=",")
         drone_pos_flat = np.array([frame.flatten() for frame in drone_pos]) 
         np.savetxt(os.path.join(dir_path, f"drones_pos{file_suffix}.csv"), drone_pos_flat, delimiter=",")
-        g.close()
+        np.savetxt(os.path.join(dir_path, f"coverage_cost{file_suffix}.csv"), coverage_cost, delimiter=",")
     
     def drone_fleet_pos_initial(self, drone_positions, sensing_range):
         
@@ -398,7 +637,7 @@ class RAPIDKF:
         
         return probabilities
     
-    def flood_prob_update(self, prob_u_flood_obs, S, default_map_indicator: bool = False) -> np.ndarray:
+    def flood_prob_update(self, prob_u_flood_obs, prob_x_flood_obs, S, default_map_indicator: bool = False, x_map_indicator: bool = False) -> np.ndarray:
         # S maps observed id to the real river network
         S = S.T
         # only calculate the probability at the boundary to upper stream section
@@ -412,6 +651,9 @@ class RAPIDKF:
             interested_prob_map =  prob_flood_obs1  + prob_flood_obs2 + self.default_prob_map
         else:
             interested_prob_map =  prob_flood_obs1  + prob_flood_obs2 
+
+        if x_map_indicator:
+            interested_prob_map += prob_x_flood_obs
 
         coverage_area_drones = S @ (prob_u_flood_obs * 0 + 1)
         flood_prob_map =  prob_flood_obs1  + prob_flood_obs2

@@ -34,13 +34,13 @@ model_path = "./model_saved_3hour_flood2"
 # ]
 
 
-drone_pos_file = "drones_pos_no_default_map"
+drone_pos_file = "drones_pos_no_input_est_no_x_map_default_map"
 file_names = [
-    "drones_discharge_est_no_default_map",
-    "prob_target_map_no_default_map",
-    "coverage_area_map_no_default_map",
-    "gt_discharge",
-    "discharge_ckf_est_input_est_obs_3"
+    "drones_discharge_est_no_input_est_no_x_map_default_map",
+    # "prob_target_map_no_input_est_no_x_map_default_map",
+    # "coverage_area_map_no_input_est_no_x_map_default_map",
+    # "gt_discharge",
+    # "discharge_ckf_est_input_est_obs_3"
 ]
 
 # Path to the shapefile and reach ID data

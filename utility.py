@@ -145,6 +145,52 @@ def move_towards(start, goal, step_size=5000):  # step in meters
     approx_step_deg = step_size / 111000.0  # ~degree per 100km (rough conversion)
     return (np.array(start) + unit_vector * approx_step_deg).tolist()
 
+def calculate_coverage_cost(latitudes, longitudes, reach_ids, drone_positions, assignment, prob_target_map):
+    """
+    Calculates the coverage cost H(p, t) for a single timestep.
+
+    This function computes the discretized version of the coverage cost integral.
+    It sums the squared geodesic distance from each point to its assigned drone,
+    weighted by the density (probability) at that point.
+
+    Args:
+        latitudes (np.array): Array of latitudes for each point (q).
+        longitudes (np.array): Array of longitudes for each point (q).
+        reach_ids (list): List of unique IDs for each point.
+        drone_positions (list of tuples): A list of (lat, lon) for each drone (p_i).
+        assignment (dict): A dictionary mapping reach_id to its assigned drone index.
+        prob_target_map (np.array): The density phi(q, t) for each point.
+
+    Returns:
+        float: The total coverage cost H.
+    """
+    total_cost = 0.0
+
+    # Create a dictionary for quick lookup of point positions by index
+    node_positions = list(zip(latitudes, longitudes))
+
+    # Iterate through each point to calculate its contribution to the cost
+    for idx, reach_id in enumerate(reach_ids):
+        # Get the position of the current point (q_j)
+        node_pos = node_positions[idx]
+
+        # Get the index of the drone assigned to this point
+        assigned_drone_idx = assignment[reach_id]
+
+        # Get the position of the assigned drone (p_i)
+        drone_pos = drone_positions[assigned_drone_idx]
+
+        # Calculate the squared geodesic distance: ||q - p_i||^2
+        dist_sq = geodesic_distance(node_pos, drone_pos)**2
+
+        # Get the density at this point: phi(q, t)
+        density = prob_target_map[idx]
+
+        # Add the weighted cost of this point to the total sum
+        total_cost += dist_sq * density
+
+    return total_cost
+
 
 class PreProcessor:
     """

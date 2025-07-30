@@ -16,13 +16,15 @@
 # Set the base path for the model
 import pandas as pd
 import matplotlib.pyplot as plt 
-model_path = "./model_saved_3hour_flood4"
-file_name_drone = "drones_discharge_est_default_map"
+model_path = "./model_saved_3hour_flood3"
+file_name_drone = "drones_discharge_est_no_input_est_no_x_map_default_map"
+# file_name_drone = "discharge_ckf_est_no_input_est_obs_3"
 # file_name_drone = "drones_discharge_est_no_default_map"
 
 file_name_gt = "gt_discharge"
 
 file_name_ckf = "discharge_ckf_est_input_est_obs_3"
+file_name_ckf = "drones_discharge_est_input_est_no_x_map_default_map"
 # file_name_ckf = "discharge_ckf_est_input_est_obs_3"
 # file_name_ckf = "discharge_ckf_no_est_input_est_obs_1"
 # file_name_drone = "discharge_ckf_no_est_input_est_obs_3"
