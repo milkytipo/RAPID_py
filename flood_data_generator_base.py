@@ -42,7 +42,7 @@ class RAPIDKF:
         if sub_dir_path is not None:
             self.sub_dir_path  = sub_dir_path
         else:
-            self.sub_dir_path = "model_saved_3hour_flood3"
+            self.sub_dir_path = "model_saved_3hour_flood2"
         # Create directory if it doesn't exist
         if not os.path.exists(os.path.join(dir_path, self.sub_dir_path)):
             os.makedirs(os.path.join(dir_path, self.sub_dir_path), exist_ok=True)
@@ -157,7 +157,7 @@ class RAPIDKF:
         with open(os.path.join(dir_path, dis_name), 'wb') as f:
             pickle.dump(saved_dict, f)
 
-    def simulate_flood(self, sim_mode: int = 1, flood_type: list = ["gaussian"]) -> None: 
+    def simulate_flood(self, sim_mode: int = 0, flood_type: list = ["fixed"]) -> None: 
         """
         Simulates the Kalman Filter model.
 
@@ -236,14 +236,14 @@ class RAPIDKF:
             discharge_obs_kf1 = np.loadtxt(file_paths[3], delimiter=",")
             open_loop_x = np.loadtxt(file_paths[4], delimiter=",")
             discharge_only_flood = np.loadtxt(file_paths[5], delimiter=",")
-            self.percentile_90 = np.loadtxt(file_paths[6], delimiter=",")
+            self.percentile_90_u = np.loadtxt(file_paths[6], delimiter=",")
             self.percentile_90_x = np.loadtxt(file_paths[7], delimiter=",")
         
         else:
             print("Some files are missing. Proceeding with the full simulation...")     
             # Find the 90th percentile along each column (axis=0 for each reach)
-            self.percentile_90 = np.percentile(self.u, 90, axis=0)  
-            np.savetxt(os.path.join(dir_path, "percentile_90.csv"), self.percentile_90, delimiter=",")
+            self.percentile_90_u = np.percentile(self.u, 90, axis=0)  
+            np.savetxt(os.path.join(dir_path, "percentile_90.csv"), self.percentile_90_u, delimiter=",")
             
             '''
             Open-loop simulation only added flood(predict inflow every 3 hours)
@@ -375,6 +375,7 @@ class RAPIDKF:
                 obs_synthetic_2.append(obs_synthetic_only_flood_2[timestep] + obs_synthetic_kf1_2[timestep])
                 obs_synthetic_3.append(obs_synthetic_only_flood_3[timestep] + obs_synthetic_kf1_3[timestep])
                 
+            
             np.savetxt(os.path.join(dir_path, "obs_synthetic_1.csv"), obs_synthetic_1, delimiter=",")
             np.savetxt(os.path.join(dir_path, "obs_synthetic_2.csv"), obs_synthetic_2, delimiter=",")
             np.savetxt(os.path.join(dir_path, "obs_synthetic_3.csv"), obs_synthetic_3, delimiter=",")
@@ -461,8 +462,20 @@ class RAPIDKF:
         
         if input_type:
             self.u_flood, self.u_flood_var = self.input_estimation(z)
-            # self.u_flood = np.maximum(0, self.u_flood - self.S @ self.percentile_90)
-            self.u_flood[self.u_flood < 0] = 0 
+            self.u_flood = np.maximum(0, self.u_flood - self.S @ self.percentile_90_u)
+
+            if self.timestep == 0:
+                self.last_effective_u_flood = np.zeros_like(self.u_flood)
+                self.u_flood = np.zeros_like(self.u_flood) 
+                self.cnt = np.zeros_like(self.u_flood)
+            else:
+                # Invalid input estimation after waiting for 3 effective timesteps
+                wait_t = 2
+                self.cnt[self.u_flood > 0.5 * self.last_effective_u_flood] += 1
+                self.u_flood[self.cnt < wait_t] = 0 
+                self.last_effective_u_flood[self.cnt == wait_t] = self.u_flood[self.cnt == wait_t]
+                self.cnt[self.cnt >= wait_t] = 0
+
             self.x = self.x + np.dot(self.B,self.u_flood)
             innovation=  z - np.dot(self.H, self.x)
         else: 
@@ -558,8 +571,6 @@ class RAPIDKF:
                 self.x += self.u[timestep * self.evolution_steps + i]  / self.evolution_steps
                 # self.x += added_flood[timestep * self.evolution_steps + i] / self.evolution_steps
 
-            self.timestep += 1
-
             gt_obs = obs_synthetic_v[timestep]
             gt_obs = self.S @ gt_obs
             self.update(gt_obs, timestep, input_indicator)
@@ -572,6 +583,7 @@ class RAPIDKF:
             state_estimation.append(copy.deepcopy(self.get_state()))
             discharge_estimation.append(discharge_avg)
             flood_est.append(self.S.T @ self.u_flood) if input_indicator else flood_est.append(np.zeros_like(self.u_flood))
+            self.timestep += 1
 
         # Save results to the created directory
         if input_indicator:

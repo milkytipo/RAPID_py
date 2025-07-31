@@ -75,7 +75,7 @@ def update(i):
 # Create animation
 ani = FuncAnimation(fig, update, frames=days, repeat=False)
 
-plt.show()
+# plt.show()
 
 # Create gif directory if it doesn't exist
 gif_path = f"{model_path}/gif"

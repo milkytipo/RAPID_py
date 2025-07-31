@@ -285,7 +285,6 @@ class RAPIDKF:
         # iter_per_day = 4
         # ordered_reach_coords = utility.river_geo_info()
         # for timestep in tqdm(range(self.days)):
-        #     self.timestep += 1
         #     Q0 = copy.deepcopy(self.Q0)
         #     for idx_day in range(iter_per_day):    
         #         self.Q0 = copy.deepcopy(Q0)
@@ -352,6 +351,7 @@ class RAPIDKF:
         #         ])
                 
         #         self.drone_pos_update(drone_positions, sensing_range)
+        #         self.timestep += 1
 
         # # Save results to the created directory
         # Qout_df = pd.DataFrame(Qout[:])
@@ -407,7 +407,6 @@ class RAPIDKF:
         iter_per_day = 4
         ordered_reach_coords = utility.river_geo_info()
         for timestep in tqdm(range(self.days)):
-            self.timestep += 1
             Q0 = copy.deepcopy(self.Q0)
             for idx_day in range(iter_per_day):    
                 self.Q0 = copy.deepcopy(Q0)
@@ -482,6 +481,8 @@ class RAPIDKF:
                 ])
                 
                 self.drone_pos_update(drone_positions, sensing_range)
+                self.timestep += 1
+
 
         # Save results to the created directory
         if default_map_bool:
@@ -687,9 +688,37 @@ class RAPIDKF:
         
         if input_type:
             self.u_flood, self.u_flood_var = self.input_estimation(z)
-            self.u_flood[self.u_flood < 0] = 0
-            if timestep == -1 :
-                self.x = self.x + np.dot(self.B,self.u_flood)
+            self.u_flood = np.maximum(0, self.u_flood - self.S @ self.percentile_90_u)
+
+            # if self.timestep == 0:
+            #     self.last_effective_u_flood = np.zeros_like(self.u_flood)
+            #     self.u_flood = np.zeros_like(self.u_flood) 
+            #     self.cnt = np.zeros_like(self.x)
+            # else:
+            #     # Invalid input estimation after waiting for 3 effective timesteps
+            #     wait_t = 3
+            #     self.last_effective_u_flood = np.zeros_like(self.u_flood) # lazy way to deal with changing shape of u
+
+            #     # 1. Map local effectiveness to global counter
+            #     # The result of S.T @ (...) is numeric, so convert it to boolean with > 0
+            #     is_effective_global = self.S.T @ (self.u_flood > 0.5 * self.last_effective_u_flood)
+            #     self.cnt[is_effective_global > 0] += 1
+
+            #     # 2. Reset local u_flood where the global count is low
+            #     # The result of S @ (...) is numeric, so convert it to boolean with > 0
+            #     local_reset_mask = self.S @ (self.cnt < wait_t)
+            #     self.u_flood[local_reset_mask > 0] = 0
+
+            #     # 3. Update the 'last_effective' where the count has just reached the threshold
+            #     # Apply the same boolean conversion here
+            #     local_update_mask = self.S @ (self.cnt == wait_t)
+            #     self.last_effective_u_flood[local_update_mask > 0] = self.u_flood[local_update_mask > 0]
+
+            #     # 4. Reset the global counter
+            #     self.cnt[self.cnt >= wait_t] = 0
+
+            # Do not really updates the states[TB upgraded]
+            # self.x = self.x + np.dot(self.B,self.u_flood)
             innovation=  z - np.dot(self.H, self.x)
         else: 
             innovation = z - np.dot(self.H, self.x)

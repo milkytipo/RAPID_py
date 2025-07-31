@@ -18,12 +18,12 @@ import pandas as pd
 import matplotlib.pyplot as plt 
 model_path = "./model_saved_3hour_flood3"
 file_name_drone = "drones_discharge_est_no_input_est_no_x_map_default_map"
+# file_name_drone = "discharge_ckf_est_input_est_obs_3"
 # file_name_drone = "discharge_ckf_est_no_input_est_obs_3"
 # file_name_drone = "drones_discharge_est_no_default_map"
 
 file_name_gt = "gt_discharge"
-
-file_name_ckf = "discharge_ckf_est_input_est_obs_3"
+# file_name_ckf = "discharge_ckf_est_no_input_est_obs_3"
 file_name_ckf = "drones_discharge_est_input_est_no_x_map_default_map"
 # file_name_ckf = "discharge_ckf_est_input_est_obs_3"
 # file_name_ckf = "discharge_ckf_no_est_input_est_obs_1"
@@ -39,6 +39,16 @@ ground_truth_flood_data = pd.read_csv(ground_truth_flood_data_path, header=None)
 # Load the CKF flood estimation data without treating the first row as the header
 ckf_flood_data_path = f"{model_path}/{file_name_ckf}.csv"
 ckf_flood_data = pd.read_csv(ckf_flood_data_path, header=None)
+
+
+# 将 ground truth 数据的每一行复制四次，以匹配其他数据
+# ground_truth_flood_data = ground_truth_flood_data.loc[ground_truth_flood_data.index.repeat(4)].reset_index(drop=True)
+# ===============================================
+# 从 drone 数据中每4行取1行（即每天只取一个点）
+flood_data = flood_data.iloc[::4].reset_index(drop=True)
+ckf_flood_data = ckf_flood_data.iloc[::4].reset_index(drop=True)
+# ===============================================
+
 # Ensure the CKF flood data columns match the ground truth data
 ckf_flood_data.columns = ground_truth_flood_data.columns
 # Calculate RMSE for each timestep for CKF
