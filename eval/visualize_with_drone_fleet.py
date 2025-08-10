@@ -9,39 +9,15 @@ from matplotlib.patches import Circle
 # --- Configuration ---
 
 # Set the base path for the model and drone data
-model_path = "./model_saved_3hour_flood2"
+model_path = "./model_saved_3hour_flood3"
 
-# List of all discharge/estimation files to be plotted
-# file_names = [
-#     "discharge_only_flood",
-#     "drones_flood_est",
-#     "drones_discharge_est",
-#     "flood_est_ground_truth",
-#     "prob_target_map",
-#     "prob_x_flood_map",
-#     "coverage_area_map",
-#     "grountruth_discharge",
-#     "discharge_est"
-# ]
+file_name_suffix = "no_input_est_x_map_no_default_map"
 
-# drone_pos_file = "drones_pos_default_map"
-# file_names = [
-#     "drones_discharge_est_default_map",
-#     "prob_target_map_default_map",
-#     "coverage_area_map_default_map",
-#     "gt_discharge",
-#     "discharge_ckf_est_input_est_obs_3"
-# ]
-
-
-drone_pos_file = "drones_pos_input_est_no_x_map_no_default_map"
+drone_pos_file = f"drones_pos_{file_name_suffix}"
 file_names = [
-    "prob_target_map_input_est_no_x_map_no_default_map",
-    # "drones_discharge_est_input_est_no_x_map_default_map",
-    # "drones_discharge_est_no_input_est_no_x_map_no_default_map",
-    # "drones_discharge_est_input_est_no_x_map_no_default_map",
-    # "prob_target_map_no_input_est_no_x_map_default_map",
-    # "coverage_area_map_no_input_est_no_x_map_default_map",
+    f"prob_target_map_{file_name_suffix}",
+    f"drones_discharge_est_{file_name_suffix}",
+    # f"coverage_area_map_{file_name_suffix}",
     # "gt_discharge",
     # "discharge_ckf_est_input_est_obs_3"
 ]
@@ -151,7 +127,7 @@ for idx, file_name in enumerate(file_names):
         drones_pos = drone_data.iloc[i].to_numpy().reshape(-1, 2)
         for drone_idx in range(drones_pos.shape[0]):
             lat, log = drones_pos[drone_idx]
-            sensing_range = 0.18
+            sensing_range = 0.18 * 10/20
             ax[0].plot(log, lat, 'ro', markersize=5, alpha=0.7) # Red dot for the drone
             circle = Circle((log, lat), sensing_range, color='blue', alpha=0.1)
             ax[0].add_patch(circle)

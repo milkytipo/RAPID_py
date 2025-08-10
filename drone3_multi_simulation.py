@@ -17,7 +17,7 @@ from tqdm import tqdm
 from utility import find_rank_and_rightmost_columns
 from pyproj import Transformer
 import  collections 
-from utility import geodesic_distance, partition_nodes, compute_centroids, move_towards, generate_unique_transform_matrices, calculate_coverage_cost
+from utility import geodesic_distance, partition_nodes, compute_centroids, move_towards, generate_unique_transform_matrices, calculate_coverage_cost, generate_river_index_matrices
 
 class RAPIDKF:
     """
@@ -41,7 +41,7 @@ class RAPIDKF:
         """
         np.random.seed(42)
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.sub_dir_path = "model_saved_3hour_flood2"
+        self.sub_dir_path = "model_saved_3hour_flood2_2"
         # Create directory if it doesn't exist
         if not os.path.exists(os.path.join(dir_path, self.sub_dir_path)):
             os.makedirs(os.path.join(dir_path, self.sub_dir_path), exist_ok=True)
@@ -159,11 +159,12 @@ class RAPIDKF:
         '''
         Simulation under synthetic data
         '''
+        self.S_all_gages, self.S_ass_gages, self.S_val_gages = generate_river_index_matrices()
         # self.S = np.eye(self.P.shape[0])
         # log = -97
         # lat = 29
         np.random.seed(312) 
-        sensing_range = 20 #km
+        sensing_range = 10 #km
         sensing_range_degree = sensing_range/110 # 20km
         n = 5
         lat = np.random.uniform(28.5, 30.25, size=n)
@@ -182,93 +183,111 @@ class RAPIDKF:
         
         print(drone_positions)
 
-        self.run_coverage_simulation(
+        # run default estimation
+
+        self.run_default_estimation(
                 dir_path,
-                obs_synthetic, 
-                drone_positions, 
-                sensing_range, 
-                default_map_bool=True, 
-                x_map_bool=False,
+                obs_synthetic,
+                self.S_all_gages,
+                "all_gages",
                 input_indicator=True, 
-                name_suffix="obs_3"
         )
 
-        self.run_coverage_simulation(
+        self.run_default_estimation(
                 dir_path,
-                obs_synthetic, 
-                drone_positions, 
-                sensing_range, 
-                default_map_bool=True, 
-                x_map_bool=False,
-                input_indicator=False, 
-                name_suffix="obs_3"
-        )
-
-        self.run_coverage_simulation(
-                dir_path,
-                obs_synthetic, 
-                drone_positions, 
-                sensing_range, 
-                default_map_bool=False, 
-                x_map_bool=False,
+                obs_synthetic,
+                self.S_ass_gages,
+                "ass_gages",
                 input_indicator=True, 
-                name_suffix="obs_3"
         )
 
-        self.run_coverage_simulation(
-                dir_path,
-                obs_synthetic, 
-                drone_positions, 
-                sensing_range, 
-                default_map_bool=False, 
-                x_map_bool=False,
-                input_indicator=False, 
-                name_suffix="obs_3"
-        )
+        # self.run_coverage_simulation(
+        #         dir_path,
+        #         obs_synthetic, 
+        #         drone_positions, 
+        #         sensing_range, 
+        #         default_map_bool=True, 
+        #         x_map_bool=False,
+        #         input_indicator=True, 
+        #         name_suffix="obs_3"
+        # )
 
-        self.run_coverage_simulation(
-                dir_path,
-                obs_synthetic, 
-                drone_positions, 
-                sensing_range, 
-                default_map_bool=True, 
-                x_map_bool=True,
-                input_indicator=True, 
-                name_suffix="obs_3"
-        )
+        # self.run_coverage_simulation(
+        #         dir_path,
+        #         obs_synthetic, 
+        #         drone_positions, 
+        #         sensing_range, 
+        #         default_map_bool=True, 
+        #         x_map_bool=False,
+        #         input_indicator=False, 
+        #         name_suffix="obs_3"
+        # )
 
-        self.run_coverage_simulation(
-                dir_path,
-                obs_synthetic, 
-                drone_positions, 
-                sensing_range, 
-                default_map_bool=True, 
-                x_map_bool=True,
-                input_indicator=False, 
-                name_suffix="obs_3"
-        )
+        # self.run_coverage_simulation(
+        #         dir_path,
+        #         obs_synthetic, 
+        #         drone_positions, 
+        #         sensing_range, 
+        #         default_map_bool=False, 
+        #         x_map_bool=False,
+        #         input_indicator=True, 
+        #         name_suffix="obs_3"
+        # )
 
-        self.run_coverage_simulation(
-                dir_path,
-                obs_synthetic, 
-                drone_positions, 
-                sensing_range, 
-                default_map_bool=False, 
-                x_map_bool=True,
-                input_indicator=True, 
-                name_suffix="obs_3"
-        )
+        # self.run_coverage_simulation(
+        #         dir_path,
+        #         obs_synthetic, 
+        #         drone_positions, 
+        #         sensing_range, 
+        #         default_map_bool=False, 
+        #         x_map_bool=False,
+        #         input_indicator=False, 
+        #         name_suffix="obs_3"
+        # )
 
-        self.run_coverage_simulation(
-                dir_path,
-                obs_synthetic, 
-                drone_positions, 
-                sensing_range, 
-                default_map_bool=False, 
-                x_map_bool=True,
-                input_indicator=False, 
-                name_suffix="obs_3"
-        )
+        # self.run_coverage_simulation(
+        #         dir_path,
+        #         obs_synthetic, 
+        #         drone_positions, 
+        #         sensing_range, 
+        #         default_map_bool=True, 
+        #         x_map_bool=True,
+        #         input_indicator=True, 
+        #         name_suffix="obs_3"
+        # )
+
+        # self.run_coverage_simulation(
+        #         dir_path,
+        #         obs_synthetic, 
+        #         drone_positions, 
+        #         sensing_range, 
+        #         default_map_bool=True, 
+        #         x_map_bool=True,
+        #         input_indicator=False, 
+        #         name_suffix="obs_3"
+        # )
+
+        # self.run_coverage_simulation(
+        #         dir_path,
+        #         obs_synthetic, 
+        #         drone_positions, 
+        #         sensing_range, 
+        #         default_map_bool=False, 
+        #         x_map_bool=True,
+        #         input_indicator=True, 
+        #         name_suffix="obs_3"
+        # )
+
+        # self.run_coverage_simulation(
+        #         dir_path,
+        #         obs_synthetic, 
+        #         drone_positions, 
+        #         sensing_range, 
+        #         default_map_bool=False, 
+        #         x_map_bool=True,
+        #         input_indicator=False, 
+        #         name_suffix="obs_3"
+        # )
 
         # self.drone_fleet_pos_initial(drone_positions, sensing_range)
         # # self.H = np.dot(self.S, self.Ae_day)
@@ -434,7 +453,7 @@ class RAPIDKF:
                 input_estimation.append(copy.deepcopy(self.u_flood))
                 flood_est.append(self.S.T @ self.u_flood)
                 
-                prob_u_flood_obs = self.sigmoid_prob(self.u_flood, self.S @ self.percentile_90_u, ema = True, last_val = input_estimation[-1])
+                prob_u_flood_obs = self.sigmoid_prob(self.u_flood, self.S @ self.percentile_90_u, ema = False, last_val = input_estimation[-1])
                 prob_x_flood_obs = self.sigmoid_prob(discharge_avg, self.percentile_90_x)
                 prob_target_area, coverage_area_drones, prob_flood_est = self.flood_prob_update(
                                                             prob_u_flood_obs,
@@ -660,7 +679,54 @@ class RAPIDKF:
         flood_prob_map =  prob_flood_obs1  + prob_flood_obs2
         
         return interested_prob_map, coverage_area_drones, flood_prob_map
-            
+    
+    
+    def run_default_estimation(self, dir_path, obs, S_gages, gage_suffix, input_indicator) -> None:
+        obs_synthetic = copy.deepcopy(obs)
+        self.S = S_gages
+        self.H = np.dot(self.S, self.Ae_day)
+        self.B = self.S.T
+        self.timestep = 0
+        self.Q0 = np.zeros_like(self.u[0])
+        state_estimation = []
+        discharge_estimation = []
+        input_estimation = []
+        flood_est = []
+        iter_per_day = 4
+        for timestep in tqdm(range(self.days)):
+            Q0 = copy.deepcopy(self.Q0)
+            for idx_day in range(iter_per_day):    
+                self.Q0 = copy.deepcopy(Q0)
+                discharge_avg = np.zeros_like(self.u[0])
+                self.x = np.zeros_like(self.u[0])
+
+                # Kalman Filter estimation (updates every 3 hours)
+                for i in range(self.evolution_steps):
+                    self.x += self.u[timestep * self.evolution_steps + i]  / self.evolution_steps
+                    # self.x += added_flood[timestep * self.evolution_steps + i] / self.evolution_steps
+                    
+                gt_obs = obs_synthetic[timestep]
+                gt_obs = self.S @ gt_obs
+                self.update(gt_obs, timestep, input_indicator)
+
+                for i in range(self.evolution_steps):
+                    discharge_avg += self.update_discharge()
+
+                discharge_avg /= self.evolution_steps
+                state_estimation.append(copy.deepcopy(self.get_state()))
+                discharge_estimation.append(discharge_avg)
+                if not input_indicator:
+                    self.u_flood = np.zeros(self.B.shape[-1])
+                input_estimation.append(copy.deepcopy(self.u_flood))
+                flood_est.append(self.S.T @ self.u_flood)
+              
+                self.timestep += 1
+
+        file_suffix = f"_input_est" if input_indicator else "_no_input_est"
+        
+        np.savetxt(os.path.join(dir_path, f"drones_discharge_est_{gage_suffix}{file_suffix}.csv"), discharge_estimation, delimiter=",")
+
+
     def predict(self, u: Optional[np.ndarray] = None) -> None:
         """
         Predicts the next state of the system.

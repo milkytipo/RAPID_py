@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # ----------------------------------------------------
 reach_info_path = "./rapid_data/NHDFlowline_San_Guad/reach_info.csv"
 sorted_id_path = "./rapid_data/riv_bas_id_San_Guad_hydroseq.csv"
-
+obs_id_path = './rapid_data/obs_tot_id_San_Guad_2010_2013_full.csv'
 # ----------------------------------------------------
 # 2. Load and process the data
 # ----------------------------------------------------

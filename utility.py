@@ -9,6 +9,54 @@ import matplotlib.pyplot as plt
 from geopy.distance import geodesic
 import numpy as np
 
+def generate_river_index_matrices():
+    """
+    Returns:
+        tuple: if succeed (S, S_assi, S_val)。
+               if fail (None, None, None)。
+               - S: all gagues (36个)
+               - S_assi: assimilation gages (23个)
+               - S_val: validation gages (13个)
+    """
+
+    assimilation_ids = [
+        3589508, 3585724, 3585678, 3585554, 10835030, 10833740, 10835974,
+        7851041, 10840810, 7851771, 7852265, 1639209, 1630223, 1631023,
+        1631099, 3589120, 3586192, 1631087, 1631387, 1631587, 1622713,
+        1639225, 1638907
+    ]
+
+    validation_ids = [
+        10836388, 10836420, 10840488, 10840572, 3838221, 3838999, 1619595,
+        1619649, 1622763, 1620031, 1637447, 1623207, 3840125
+    ]
+    
+    sorted_id_path = "./rapid_data/riv_bas_id_San_Guad_hydroseq.csv"
+
+    try:
+        reach_id_sorted = pd.read_csv(sorted_id_path, header=None).values.flatten()
+    except FileNotFoundError:
+        print(f"Error: not find file {sorted_id_path}")
+        return None, None, None
+
+    def _build_matrix(observed_ids, all_reach_ids):
+        id_to_index = {id_val: i for i, id_val in enumerate(all_reach_ids)}
+        s_matrix = np.zeros((len(observed_ids), len(all_reach_ids)), dtype=int)
+        
+        for i, obs_id in enumerate(observed_ids):
+            j = id_to_index.get(obs_id)
+            if j is not None:
+                s_matrix[i, j] = 1
+        return s_matrix
+
+    all_gauge_ids = assimilation_ids + validation_ids
+    
+    S_all = _build_matrix(all_gauge_ids, reach_id_sorted)
+    S_assi = _build_matrix(assimilation_ids, reach_id_sorted)
+    S_val = _build_matrix(validation_ids, reach_id_sorted)
+
+    return S_all, S_assi, S_val
+
 def generate_unique_transform_matrices(drone_obs_id, all_ids):
     """
     Args:

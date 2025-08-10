@@ -15,16 +15,23 @@
     
 # Set the base path for the model
 import pandas as pd
+import os
 import matplotlib.pyplot as plt 
-model_path = "./model_saved_3hour_flood3"
-file_name_drone = "drones_discharge_est_no_input_est_no_x_map_default_map"
-# file_name_drone = "discharge_ckf_est_input_est_obs_3"
-# file_name_drone = "discharge_ckf_est_no_input_est_obs_3"
+model_path = "./model_saved_3hour_flood3_2"
+
+gif_path = f"{model_path}/fig_eval"
+os.makedirs(gif_path, exist_ok=True)
+
+file_name_drone = "drones_discharge_est_input_est_no_x_map_default_map"
+# file_name_drone = "drones_discharge_est_fixed_gauge_input_est"
+file_name_drone = "discharge_ckf_est_no_input_est_obs_3"
 # file_name_drone = "drones_discharge_est_no_default_map"
 
 file_name_gt = "gt_discharge"
-# file_name_ckf = "discharge_ckf_est_no_input_est_obs_3"
-file_name_ckf = "drones_discharge_est_input_est_no_x_map_default_map"
+file_name_ckf = "drones_discharge_est_no_input_est_no_x_map_default_map"
+file_name_ckf = "drones_discharge_est_fixed_gauge_input_est"
+
+
 # file_name_ckf = "discharge_ckf_est_input_est_obs_3"
 # file_name_ckf = "discharge_ckf_no_est_input_est_obs_1"
 # file_name_drone = "discharge_ckf_no_est_input_est_obs_3"
@@ -45,8 +52,8 @@ ckf_flood_data = pd.read_csv(ckf_flood_data_path, header=None)
 # ground_truth_flood_data = ground_truth_flood_data.loc[ground_truth_flood_data.index.repeat(4)].reset_index(drop=True)
 # ===============================================
 # 从 drone 数据中每4行取1行（即每天只取一个点）
-flood_data = flood_data.iloc[::4].reset_index(drop=True)
-ckf_flood_data = ckf_flood_data.iloc[::4].reset_index(drop=True)
+# flood_data = flood_data.iloc[::4].reset_index(drop=True)
+# ckf_flood_data = ckf_flood_data.iloc[::4].reset_index(drop=True)
 # ===============================================
 
 # Ensure the CKF flood data columns match the ground truth data
