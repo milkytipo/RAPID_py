@@ -22,14 +22,14 @@ model_path = "./model_saved_3hour_flood2_2"
 gif_path = f"{model_path}/fig_eval"
 os.makedirs(gif_path, exist_ok=True)
 
-file_name_drone = "drones_discharge_est_input_est_no_x_map_default_map"
+file_name_drone = "drones_input_est_no_input_est_no_x_map_default_map"
 # file_name_drone = "drones_discharge_est_fixed_gauge_input_est"
 # file_name_drone = "discharge_ckf_est_input_est_obs_3"
-file_name_drone = "drones_discharge_est_ass_gages_input_est"
+file_name_drone = "drones_input_est_test_gages_input_est"
 
-file_name_gt = "gt_discharge"
-file_name_ckf = "drones_discharge_est_no_input_est_no_x_map_default_map"
-file_name_ckf = "drones_discharge_est_test_gages_input_est"
+file_name_gt = "injected_flood"
+file_name_ckf = "drones_input_est_no_input_est_no_x_map_default_map"
+file_name_ckf = "flood_est_ckf_input_est_obs_3"
 
 
 # file_name_ckf = "discharge_ckf_est_input_est_obs_3"
@@ -75,7 +75,7 @@ plt.grid()
 plt.xticks(range(len(rmse_values)), rotation=45)
 plt.legend()
 plt.tight_layout()
-plt.savefig(f"{model_path}/fig_eval/rmse_flood_estimation.png")
+plt.savefig(f"{model_path}/fig_eval/input_rmse_flood_estimation.png")
 
 # also calculate the MAE (Mean Absolute Error) for each estimation type
 mae_values = (flood_data - ground_truth_flood_data).abs().mean(axis=1)
@@ -91,7 +91,7 @@ plt.grid()
 plt.xticks(range(len(mae_values)), rotation=45)
 plt.legend()
 plt.tight_layout()
-plt.savefig(f"{model_path}/fig_eval/mae_flood_estimation.png")
+plt.savefig(f"{model_path}/fig_eval/input_mae_flood_estimation.png")
 
 print(f"rmse shape {rmse_values.shape } | mae shape {mae_values.shape }")
 print(f"ckf rmse shape {rmse_ckf_values.shape } | mae shape {mae_ckf_values.shape }")

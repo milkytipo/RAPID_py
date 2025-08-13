@@ -9,17 +9,25 @@ from matplotlib.patches import Circle
 # --- Configuration ---
 
 # Set the base path for the model and drone data
-model_path = "./model_saved_3hour_flood3"
+model_path = "./model_saved_3hour_flood2_2"
 
-file_name_suffix = "no_input_est_x_map_no_default_map"
+file_name_suffix = "input_est_x_map_no_default_map"
 
 drone_pos_file = f"drones_pos_{file_name_suffix}"
 file_names = [
     f"prob_target_map_{file_name_suffix}",
-    f"drones_discharge_est_{file_name_suffix}",
+    # f"drones_discharge_est_{file_name_suffix}",
     # f"coverage_area_map_{file_name_suffix}",
-    # "gt_discharge",
-    # "discharge_ckf_est_input_est_obs_3"
+    # f"gt_discharge",
+    # f"flood_est_ckf_input_est_obs_3",
+    # f"discharge_ckf_est_input_est_obs_3",
+    # f"drones_input_est_test_gages_input_est",
+    # f"drones_input_est_ass_gages_input_est",
+    # f"drones_input_est_val_gages_input_est",
+    # f"drones_discharge_est_val_gages_input_est",
+    # f"drones_discharge_est_ass_gages_input_est",
+    # f"drones_discharge_est_test_gages_input_est",
+
 ]
 
 # Path to the shapefile and reach ID data

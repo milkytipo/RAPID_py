@@ -41,7 +41,7 @@ class RAPIDKF:
         """
         np.random.seed(42)
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.sub_dir_path = "model_saved_3hour_flood2_2"
+        self.sub_dir_path = "model_saved_3hour_flood3_2"
         # Create directory if it doesn't exist
         if not os.path.exists(os.path.join(dir_path, self.sub_dir_path)):
             os.makedirs(os.path.join(dir_path, self.sub_dir_path), exist_ok=True)
@@ -159,7 +159,7 @@ class RAPIDKF:
         '''
         Simulation under synthetic data
         '''
-        self.S_all_gages, self.S_ass_gages, self.S_val_gages = generate_river_index_matrices()
+        self.S_all_gages, self.S_ass_gages, self.S_val_gages, self.S_test_gages = generate_river_index_matrices()
         # self.S = np.eye(self.P.shape[0])
         # log = -97
         # lat = 29
@@ -183,7 +183,15 @@ class RAPIDKF:
         
         print(drone_positions)
 
-        # run default estimation
+        # run default estimation  
+
+        self.run_default_estimation(
+                dir_path,
+                obs_synthetic,
+                self.S_test_gages,
+                "test_gages",
+                input_indicator=True, 
+        )
 
         self.run_default_estimation(
                 dir_path,
@@ -201,93 +209,103 @@ class RAPIDKF:
                 input_indicator=True, 
         )
 
-        # self.run_coverage_simulation(
-        #         dir_path,
-        #         obs_synthetic, 
-        #         drone_positions, 
-        #         sensing_range, 
-        #         default_map_bool=True, 
-        #         x_map_bool=False,
-        #         input_indicator=True, 
-        #         name_suffix="obs_3"
-        # )
+        self.run_default_estimation(
+                dir_path,
+                obs_synthetic,
+                self.S_val_gages,
+                "val_gages",
+                input_indicator=True, 
+        )
 
-        # self.run_coverage_simulation(
-        #         dir_path,
-        #         obs_synthetic, 
-        #         drone_positions, 
-        #         sensing_range, 
-        #         default_map_bool=True, 
-        #         x_map_bool=False,
-        #         input_indicator=False, 
-        #         name_suffix="obs_3"
-        # )
+        
 
-        # self.run_coverage_simulation(
-        #         dir_path,
-        #         obs_synthetic, 
-        #         drone_positions, 
-        #         sensing_range, 
-        #         default_map_bool=False, 
-        #         x_map_bool=False,
-        #         input_indicator=True, 
-        #         name_suffix="obs_3"
-        # )
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=True, 
+                x_map_bool=False,
+                input_indicator=True, 
+                name_suffix="obs_3"
+        )
 
-        # self.run_coverage_simulation(
-        #         dir_path,
-        #         obs_synthetic, 
-        #         drone_positions, 
-        #         sensing_range, 
-        #         default_map_bool=False, 
-        #         x_map_bool=False,
-        #         input_indicator=False, 
-        #         name_suffix="obs_3"
-        # )
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=True, 
+                x_map_bool=False,
+                input_indicator=False, 
+                name_suffix="obs_3"
+        )
 
-        # self.run_coverage_simulation(
-        #         dir_path,
-        #         obs_synthetic, 
-        #         drone_positions, 
-        #         sensing_range, 
-        #         default_map_bool=True, 
-        #         x_map_bool=True,
-        #         input_indicator=True, 
-        #         name_suffix="obs_3"
-        # )
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=False, 
+                x_map_bool=False,
+                input_indicator=True, 
+                name_suffix="obs_3"
+        )
 
-        # self.run_coverage_simulation(
-        #         dir_path,
-        #         obs_synthetic, 
-        #         drone_positions, 
-        #         sensing_range, 
-        #         default_map_bool=True, 
-        #         x_map_bool=True,
-        #         input_indicator=False, 
-        #         name_suffix="obs_3"
-        # )
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=False, 
+                x_map_bool=False,
+                input_indicator=False, 
+                name_suffix="obs_3"
+        )
 
-        # self.run_coverage_simulation(
-        #         dir_path,
-        #         obs_synthetic, 
-        #         drone_positions, 
-        #         sensing_range, 
-        #         default_map_bool=False, 
-        #         x_map_bool=True,
-        #         input_indicator=True, 
-        #         name_suffix="obs_3"
-        # )
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=True, 
+                x_map_bool=True,
+                input_indicator=True, 
+                name_suffix="obs_3"
+        )
 
-        # self.run_coverage_simulation(
-        #         dir_path,
-        #         obs_synthetic, 
-        #         drone_positions, 
-        #         sensing_range, 
-        #         default_map_bool=False, 
-        #         x_map_bool=True,
-        #         input_indicator=False, 
-        #         name_suffix="obs_3"
-        # )
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=True, 
+                x_map_bool=True,
+                input_indicator=False, 
+                name_suffix="obs_3"
+        )
+
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=False, 
+                x_map_bool=True,
+                input_indicator=True, 
+                name_suffix="obs_3"
+        )
+
+        self.run_coverage_simulation(
+                dir_path,
+                obs_synthetic, 
+                drone_positions, 
+                sensing_range, 
+                default_map_bool=False, 
+                x_map_bool=True,
+                input_indicator=False, 
+                name_suffix="obs_3"
+        )
 
         # self.drone_fleet_pos_initial(drone_positions, sensing_range)
         # # self.H = np.dot(self.S, self.Ae_day)
@@ -725,6 +743,7 @@ class RAPIDKF:
         file_suffix = f"_input_est" if input_indicator else "_no_input_est"
         
         np.savetxt(os.path.join(dir_path, f"drones_discharge_est_{gage_suffix}{file_suffix}.csv"), discharge_estimation, delimiter=",")
+        np.savetxt(os.path.join(dir_path, f"drones_input_est_{gage_suffix}{file_suffix}.csv"), flood_est, delimiter=",")
 
 
     def predict(self, u: Optional[np.ndarray] = None) -> None:

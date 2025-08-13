@@ -17,6 +17,7 @@ def generate_river_index_matrices():
                - S: all gagues (36个)
                - S_assi: assimilation gages (23个)
                - S_val: validation gages (13个)
+               - S_test: test gages (5个)
     """
 
     assimilation_ids = [
@@ -29,6 +30,10 @@ def generate_river_index_matrices():
     validation_ids = [
         10836388, 10836420, 10840488, 10840572, 3838221, 3838999, 1619595,
         1619649, 1622763, 1620031, 1637447, 1623207, 3840125
+    ]
+
+    test_ids = [
+        10833740, 7851041, 7852265, 1631387, 1639209
     ]
     
     sorted_id_path = "./rapid_data/riv_bas_id_San_Guad_hydroseq.csv"
@@ -54,8 +59,9 @@ def generate_river_index_matrices():
     S_all = _build_matrix(all_gauge_ids, reach_id_sorted)
     S_assi = _build_matrix(assimilation_ids, reach_id_sorted)
     S_val = _build_matrix(validation_ids, reach_id_sorted)
+    S_test = _build_matrix(test_ids, reach_id_sorted)
 
-    return S_all, S_assi, S_val
+    return S_all, S_assi, S_val, S_test
 
 def generate_unique_transform_matrices(drone_obs_id, all_ids):
     """

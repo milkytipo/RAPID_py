@@ -42,7 +42,7 @@ class RAPIDKF:
         if sub_dir_path is not None:
             self.sub_dir_path  = sub_dir_path
         else:
-            self.sub_dir_path = "model_saved_3hour_flood3_2" #_2 means no input compensation to state
+            self.sub_dir_path = "model_saved_3hour_flood2_2" #_2 means no input compensation to state
         # Create directory if it doesn't exist
         if not os.path.exists(os.path.join(dir_path, self.sub_dir_path)):
             os.makedirs(os.path.join(dir_path, self.sub_dir_path), exist_ok=True)
@@ -50,7 +50,7 @@ class RAPIDKF:
         self.radius: int = 20
         self.i_factor: float = 2.58  # Enforced on covariance P
         self.days: int = 366 + 365 + 365 + 365  # 2010 to 2013
-        self.days: int = 20  # 2010 to 2013
+        # self.days: int = 20  # 2010 to 2013
         self.month: int = self.days // 365 * 12
         self.timestep: int = 0
         
@@ -223,6 +223,7 @@ class RAPIDKF:
             "discharge_only_flood.csv",
             "percentile_90.csv",
             "percentile_90_x.csv",
+            "percentile_99_x.csv",
         ]
         
         file_paths = [os.path.join(dir_path, file) for file in file_names]
@@ -239,7 +240,7 @@ class RAPIDKF:
             discharge_only_flood = np.loadtxt(file_paths[5], delimiter=",")
             self.percentile_90_u = np.loadtxt(file_paths[6], delimiter=",")
             self.percentile_90_x = np.loadtxt(file_paths[7], delimiter=",")
-        
+            self.percentile_99_x = np.loadtxt(file_paths[8], delimiter=",")
         else:
             print("Some files are missing. Proceeding with the full simulation...")     
             # Find the 90th percentile along each column (axis=0 for each reach)
@@ -365,7 +366,9 @@ class RAPIDKF:
 
             np.savetxt(os.path.join(dir_path, "gt_discharge.csv"), gt_discharge, delimiter=",")
             self.percentile_90_x = np.percentile(gt_discharge, 95, axis=0)  
+            self.percentile_99_x = np.percentile(gt_discharge, 99, axis=0)  
             np.savetxt(os.path.join(dir_path, "percentile_90_x.csv"), self.percentile_90_x, delimiter=",")
+            np.savetxt(os.path.join(dir_path, "percentile_99_x.csv"), self.percentile_99_x, delimiter=",")
 
             '''
             Generate synthetic observations
@@ -478,7 +481,7 @@ class RAPIDKF:
                 self.last_effective_u_flood[self.cnt == wait_t] = self.u_flood[self.cnt == wait_t]
                 self.cnt[self.cnt >= wait_t] = 0
 
-            # self.x = self.x + np.dot(self.B,self.u_flood)
+            # self.x = self.x + np.dot(self.B,self.u_flood) # 取消compensate input
             innovation=  z - np.dot(self.H, self.x)
         else: 
             innovation = z - np.dot(self.H, self.x)
